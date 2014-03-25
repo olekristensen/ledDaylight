@@ -10,8 +10,8 @@ public:
         DMXstartAddress = startAddress;
         if(startAddress > 0)
         {
-            DMXchannels.push_back(new DMXchannel(startAddress, DMX_CHANNEL_WW, true));
-            DMXchannels.push_back(new DMXchannel(startAddress+2, DMX_CHANNEL_CW, true));
+            DMXchannels.push_back(new DMXchannel(startAddress, DMXchannel::DMX_CHANNEL_WW, true));
+            DMXchannels.push_back(new DMXchannel(startAddress+2, DMXchannel::DMX_CHANNEL_CW, true));
         }
         kelvinCold = 6500;
         kelvinWarm = 4200;

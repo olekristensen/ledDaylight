@@ -20,7 +20,6 @@ void testApp::setup()
 {
     hideGUI = false;
 
-    scenes.push_back(new tesselationScene());
     scenes.push_back(new darknessFollowsScene());
 
     for(std::vector<ledScene*>::iterator it = scenes.begin(); it != scenes.end(); ++it)
@@ -30,14 +29,6 @@ void testApp::setup()
     }
 
     setGUI();
-
-    ola::InitLogging(ola::OLA_LOG_WARN, ola::OLA_LOG_STDERR);
-
-    // Setup the client, this connects to the server
-    if (!ola_client.Setup())
-    {
-        std::cerr << "OLA Setup failed" << std::endl;
-    }
 
 //    sourceCamera.connect();
 //	  cameraController.load("cameraSettings.xml");
@@ -168,20 +159,20 @@ void testApp::update()
 
     activeScene->update(&buffer);
 
-    if (!ola_client.SendDmx(0, buffer))
+/*    if (!ola_client.SendDmx(0, buffer))
     {
         cout << "Send DMX failed" << endl;
     }
 
     //  cameraController.update();
-
+*/
 }
 
 //--------------------------------------------------------------
 void testApp::draw()
 {
     ofBackgroundGradient(ofColor(40), ofColor(10), OF_GRADIENT_CIRCULAR);
-    glEnable(GL_DEPTH_TEST);
+    ofEnableDepthTest();
     ofEnableSmoothing();
     float viewportWidth = (ofGetWidth()-gui->getRect()->getWidth());
     ofViewport(gui->getRect()->getWidth(),0,viewportWidth,ofGetHeight());

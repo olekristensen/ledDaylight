@@ -266,12 +266,12 @@ void tesselationScene::update(ola::DmxBuffer * buffer)
             {
                 DMXchannel* c = *(chIt);
                 float value = 0;
-                if(c->type == DMX_CHANNEL_CW)
+                if(c->type == DMXchannel::DMX_CHANNEL_CW)
                 {
                     value = ofMap(t->temperature, t->kelvinCold, t->kelvinWarm, 0, 1.);
                     value = fminf(1.,ofMap(value, 0 , 0.5, 0., 1.));
                 }
-                if(c->type == DMX_CHANNEL_WW)
+                if(c->type == DMXchannel::DMX_CHANNEL_WW)
                 {
                     value = ofMap(t->temperature, t->kelvinWarm, t->kelvinCold, 0, 1.);
                     value = fminf(1.,ofMap(value, 0 , 0.5, 0., 1.));

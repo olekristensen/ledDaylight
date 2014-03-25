@@ -8,3 +8,5 @@ ofxKinect
 ofxUI
 ofxCv
 ofxRemoteUI
+ofxOlaShaderLight
+ofxUbo

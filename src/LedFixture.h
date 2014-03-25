@@ -1,40 +1,6 @@
 #pragma once
 #include "ofMain.h"
-
-enum DMXchannelType
-{
-    DMX_CHANNEL_RED,
-    DMX_CHANNEL_GREEN,
-    DMX_CHANNEL_BLUE,
-    DMX_CHANNEL_WHITE,
-    DMX_CHANNEL_CW,
-    DMX_CHANNEL_WW,
-    DMX_CHANNEL_COLOR_TEMPERATURE,
-    DMX_CHANNEL_BRIGHTNESS,
-    DMX_CHANNEL_HUE,
-    DMX_CHANNEL_SATURATION
-};
-
-class DMXchannel
-{
-
-public:
-    DMXchannel(unsigned int address, DMXchannelType type = DMX_CHANNEL_BRIGHTNESS, bool width16bit = false, unsigned int minValue = 0, unsigned int maxValue=255)
-    {
-        this->address = address;
-        this->type = type;
-        this->width16bit = width16bit;
-        this->minValue = minValue;
-        this->maxValue = maxValue;
-    };
-
-    DMXchannelType type;
-    unsigned int address;
-    unsigned int minValue;
-    unsigned int maxValue;
-    bool width16bit;
-
-};
+#include "ofxOlaShaderLight.h"
 
 class LedFixture
 {

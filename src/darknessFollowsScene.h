@@ -1,7 +1,10 @@
 #pragma once
 #include "ledScene.h"
+#include "ofxOlaShaderLight.h"
 
-class ChromaWhiteSpot : public ofLight, public LedFixture
+#define LIGHT_POS_Z_CHEAT 4.0
+
+class ChromaWhiteSpot : public ofxOlaShaderLight
 {
 public:
 
@@ -10,71 +13,26 @@ public:
         DMXstartAddress = startAddress;
         if(startAddress > 0)
         {
-            DMXchannels.push_back(new DMXchannel(startAddress, DMX_CHANNEL_COLOR_TEMPERATURE, false));
-            DMXchannels.push_back(new DMXchannel(startAddress+1, DMX_CHANNEL_BRIGHTNESS, false));
+            DMXchannels.push_back(new DMXchannel(startAddress, DMXchannel::DMX_CHANNEL_COLOR_TEMPERATURE, false));
+            DMXchannels.push_back(new DMXchannel(startAddress+1, DMXchannel::DMX_CHANNEL_BRIGHTNESS, false));
         }
         ofLight::setSpotlight();
-        ofLight::setSpecularColor(ofColor(0.0));
-        ofLight::setSpotlightCutOff(33);
-        ofLight::setSpotConcentration(25);
-        ofLight::setAttenuation(1.f, .01f, 0.f);
-        color = ofColor(255,255);
-        kelvinCold = 6500;
-        kelvinWarm = 2700;
-        brightness = 1.0;
-    };
-
-    void update()
-    {
-        drawColor = color * brightness;
-        drawColor *= temperatureToColor(temperature);
+        setAttenuation(1./.1);
+        temperatureRangeColdKelvin = 6500;
+        temperatureRangeWarmKelvin = 2700;
+        setNormalisedBrightness(1.0);
     };
 
     void draw()
     {
-        ofLight::setDiffuseColor(drawColor);
         ofPushStyle();
-        ofSetColor(drawColor);
+        ofSetColor(ofLight::getDiffuseColor());
+        ofPushMatrix();
+        ofTranslate(0,0,getPosition().z*(LIGHT_POS_Z_CHEAT-1));
         ofLight::draw();
+        ofPopMatrix();
         ofPopStyle();
     };
-
-    void setColor(ofColor color)
-    {
-        this->color = color;
-    }
-
-    ofColor getColor()
-    {
-        return color;
-    }
-
-    void setTemperature(unsigned int degreesKelvin)
-    {
-        temperature = degreesKelvin;
-    }
-
-    unsigned int getTemperature()
-    {
-        return temperature;
-    }
-
-    void setBrightness(float brightness)
-    {
-        this->brightness = brightness;
-    }
-
-    float getBrightness()
-    {
-        return brightness;
-    }
-
-    float brightness;
-    unsigned int temperature;
-
-    ofColor color;
-    ofColor drawColor;
-
 };
 
 
@@ -90,10 +48,31 @@ public:
     vector<ChromaWhiteSpot*> spotlights;
 
     ofPlanePrimitive floor;
-    ofMaterial floorMaterial;
+    ofxOlaShaderLight::Material white;
+
+    unsigned int kelvinCold;
+    unsigned int kelvinWarm;
+
+    float kelvinWarmRange;
+    float kelvinColdRange;
+    float temperatureSpeed;
+    float temperatureTime;
+    float temperatureSpread;
+
+    float brightnessRangeFrom;
+    float brightnessRangeTo;
+    float brightnessSpeed;
+    float brightnessTime;
+    float brightnessSpread;
 
     ofEasyCam cam;
-    ofShader lightShader;
+
+    float timeOffset = 100.0;
+    float lastFrameSeconds;
+
+    float lightZposCheat = LIGHT_POS_Z_CHEAT;
+
+    ofTrueTypeFont font;
 
 protected:
 private:

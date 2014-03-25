@@ -8,7 +8,6 @@
 #include <ola/StreamingClient.h>
 #include "fullScreenDialogs.h"
 #include "ofxUI.h"
-#include "tesselationScene.h"
 #include "darknessFollowsScene.h"
 
 class testApp : public ofBaseApp

@@ -7,18 +7,43 @@ darknessFollowsScene::darknessFollowsScene()
 
 void darknessFollowsScene::setup()
 {
+
+    ofTrueTypeFont::setGlobalDpi(72);
+
+	font.loadFont("verdana.ttf", 24, true, true);
+
     name = "Darkness Follows";
+
+    kelvinCold = 6500;
+    kelvinWarm = 2700;
+
+    kelvinColdRange = kelvinCold;
+    kelvinWarmRange = kelvinWarm;
+    temperatureSpeed = 0.5;
+    temperatureSpread = 0.15;
+    temperatureTime = 0;
+
+    brightnessRangeFrom = 0.0;
+    brightnessRangeTo = 1.0;
+    brightnessSpeed = 0.4;
+    brightnessSpread = 0.25;
+    brightnessTime = 0;
 
     int numberSpotlightsX = 3;
     int numberSpotlightsY = 3;
     float spotlightsDistX = 110;
     float spotlightsDistY = 85;
-    float spotlightsPosZ = -285;
+    float spotlightsPosZ = -285/lightZposCheat;
 
     floor.set(285,300,100,100);
-    floorMaterial.setColors(ofColor(200,200,200), ofColor(0,0,0), ofColor(0,0,0), ofColor(0,0,0));
 
-    int startAddress = 1;
+    white.diffuseColor = ofVec4f(255,255,255,255);
+
+    int addressMap[] = {1,3,5,
+                    7,9,11,
+                    13,15,17};
+
+    int addressIndex = 0;
 
     ofVec3f posOffsetFromCenter(spotlightsDistX*(numberSpotlightsX-1)*.5, spotlightsDistY*(numberSpotlightsY-1)*.5, spotlightsPosZ);
 
@@ -27,8 +52,7 @@ void darknessFollowsScene::setup()
         for(int y = 0; y < numberSpotlightsY; y++)
         {
             ChromaWhiteSpot* cws = new ChromaWhiteSpot();
-            cws->setup(startAddress);
-            startAddress+=2;
+            cws->setup(addressMap[addressIndex++]);
             cws->setParent(floor);
             ofVec3f pos(x*spotlightsDistX, y*spotlightsDistY);
             pos -= posOffsetFromCenter;
@@ -38,55 +62,74 @@ void darknessFollowsScene::setup()
     }
 
     cam.setTranslationKey(' ');
-    lightShader.load("shaders/darknessFollowsFloor");
 
 }
+
 
 void darknessFollowsScene::setGUI(ofxUISuperCanvas* gui)
 {
     this->gui = gui;
-
+    guiWidgets.push_back(gui->addLabel("Temperature", OFX_UI_FONT_LARGE));
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel("Range", OFX_UI_FONT_SMALL));
+    ofxUIRangeSlider * rTemp = gui->addRangeSlider("tRange", kelvinWarm, kelvinCold, &kelvinWarmRange, &kelvinColdRange, gui->getRect()->getWidth()-8, 30);
+    rTemp->setColorBack(ofColor(48,48,48));
+    guiWidgets.push_back(rTemp);
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel("Speed", OFX_UI_FONT_SMALL));
+    ofxUISlider * sTempSpeed = gui->addSlider("tSpeed",0,1,&temperatureSpeed, gui->getRect()->getWidth()-8, 30);
+    sTempSpeed->setColorBack(ofColor(48,48,48));
+    guiWidgets.push_back(sTempSpeed);
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel("Spread", OFX_UI_FONT_SMALL));
+    ofxUISlider * sTempSpread = gui->addSlider("tSpread",0,0.33,&temperatureSpread, gui->getRect()->getWidth()-8, 30);
+    sTempSpread->setColorBack(ofColor(48,48,48));
+    guiWidgets.push_back(sTempSpread);
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel(""));
+    guiWidgets.push_back(gui->addLabel("Brightness", OFX_UI_FONT_LARGE));
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel("Range", OFX_UI_FONT_SMALL));
+    ofxUIRangeSlider * rBrightness = gui->addRangeSlider("bRange", 0, 1, &brightnessRangeFrom, &brightnessRangeTo, gui->getRect()->getWidth()-8, 30);
+    rBrightness->setColorBack(ofColor(48,48,48));
+    guiWidgets.push_back(rBrightness);
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel("Speed", OFX_UI_FONT_SMALL));
+    ofxUISlider * sBrightnessSpeed = gui->addSlider("bSpeed",0,1,&brightnessSpeed, gui->getRect()->getWidth()-8, 30);
+    sBrightnessSpeed->setColorBack(ofColor(48,48,48));
+    guiWidgets.push_back(sBrightnessSpeed);
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel("Spread", OFX_UI_FONT_SMALL));
+    ofxUISlider * sBrightnessSpread = gui->addSlider("bSpread",0,0.33,&brightnessSpread, gui->getRect()->getWidth()-8, 30);
+    sBrightnessSpread->setColorBack(ofColor(48,48,48));
+    guiWidgets.push_back(sBrightnessSpread);
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel(""));
 }
 
 void darknessFollowsScene::update(ola::DmxBuffer * buffer)
 {
+
+    double temperatureSpreadCubic = powf(temperatureSpread, 3);
+    double brightnessSpreadCubic = powf(brightnessSpread, 3);
+
     for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); it++){
         ChromaWhiteSpot * cws = *(it);
-        float temperature = ofMap(ofNoise(ofGetElapsedTimef(), cws->getPosition().x*0.01, cws->getPosition().y*0.01),0,1,cws->kelvinWarm,cws->kelvinCold);
-        float brightness = ofNoise(ofGetElapsedTimef()+200, cws->getPosition().x*0.1, cws->getPosition().y*0.1);
+            float tempNoise = ofNoise(cws->getPosition().x*temperatureSpreadCubic, cws->getPosition().y*temperatureSpreadCubic, temperatureTime);
+            unsigned int temperature = round(ofMap(tempNoise, 0, 1, fmaxf(cws->temperatureRangeWarmKelvin, kelvinWarmRange), fminf(cws->temperatureRangeColdKelvin, kelvinColdRange)));
+
+            float brightness = ofNoise(cws->getPosition().x*brightnessSpreadCubic, cws->getPosition().y*brightnessSpreadCubic, brightnessTime);
+            brightness = ofMap(brightness, 0, 1, brightnessRangeFrom, brightnessRangeTo);
 
         cws->setTemperature(temperature);
-        cws->setBrightness(brightness);
-
-            for(std::vector<DMXchannel*>::iterator chIt = cws->DMXchannels.begin(); chIt != cws->DMXchannels.end(); chIt++)
-            {
-                DMXchannel* c = *(chIt);
-                float value = 0;
-                if(c->type == DMX_CHANNEL_BRIGHTNESS)
-                {
-                    value = cws->brightness;
-                }
-                if(c->type == DMX_CHANNEL_COLOR_TEMPERATURE)
-                {
-                    value = ofMap(cws->temperature, cws->kelvinWarm, cws->kelvinCold, 0, 1.);
-                }
-
-                if(c->width16bit)
-                {
-                    unsigned int valueInt = ofMap(value, 0.,1., 0, pow(255,2));
-                    buffer->SetChannel(c->address-1, valueInt/255);
-                    buffer->SetChannel(c->address, valueInt%255);
-                }
-                else
-                {
-                    unsigned int valueInt = ofMap(value, 0.,1., 0, 255);
-                    buffer->SetChannel(c->address-1, valueInt);
-                }
-            }
-        cws->update();
-
+        cws->setNormalisedBrightness(brightness);
     }
+    ofxOlaShaderLight::update();
 
+    float now = ofGetElapsedTimef() + timeOffset;
+    temperatureTime += powf(temperatureSpeed,8) * ( ( now - lastFrameSeconds ) / (1./60));
+    brightnessTime += powf(brightnessSpeed,8) * ( ( now - lastFrameSeconds ) / (1./60));
+    lastFrameSeconds = now;
 }
 
 void darknessFollowsScene::draw()
@@ -96,25 +139,27 @@ void darknessFollowsScene::draw()
     cam.begin();
 
     ofPushStyle();
-    ofEnableLighting();
-    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it){
-        ChromaWhiteSpot * cws = *(it);
-        cws->enable();
-    }
-    floorMaterial.begin();
-    //lightShader.begin();
+    ofxOlaShaderLight::begin();
+    ofxOlaShaderLight::setMaterial(white);
     floor.draw();
-    //lightShader.end();
-    floorMaterial.end();
+    ofxOlaShaderLight::end();
     for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it){
         ChromaWhiteSpot * cws = *(it);
         cws->draw();
-        cws->disable();
     }
-
     ofDisableLighting();
     ofPopStyle();
-    ofDrawAxis(200);
     cam.end();
+    ofSetColor(255, 255, 255);
+    ofDisableDepthTest();
+    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it){
+        ChromaWhiteSpot * cws = *(it);
+        ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(0.99,1.,lightZposCheat*1.))+ofVec3f(12,-6,0));
+        v.x -= ofGetWidth()/3.;
+        v.x *= ofGetWidth()/(ofGetWidth()*2./3.);
+        font.drawString(ofToString(cws->DMXstartAddress),v.x,v.y+60);
+    }
+
+
 //    ofPopMatrix();
 }
