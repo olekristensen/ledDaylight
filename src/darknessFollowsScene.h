@@ -21,18 +21,20 @@ public:
         temperatureRangeColdKelvin = 6500;
         temperatureRangeWarmKelvin = 2700;
         setNormalisedBrightness(1.0);
+        selected = false;
     };
 
     void draw()
     {
         ofPushStyle();
-        ofSetColor(ofLight::getDiffuseColor());
         ofPushMatrix();
         ofTranslate(0,0,getPosition().z*(LIGHT_POS_Z_CHEAT-1));
+        ofSetColor(ofLight::getDiffuseColor());
         ofLight::draw();
         ofPopMatrix();
         ofPopStyle();
     };
+    bool selected;
 };
 
 
@@ -44,6 +46,8 @@ public:
     void setGUI(ofxUISuperCanvas* gui);
     void update(ola::DmxBuffer * buffer);
     void draw();
+
+    void mouseMoved(int x, int y);
 
     vector<ChromaWhiteSpot*> spotlights;
 

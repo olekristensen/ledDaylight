@@ -202,25 +202,33 @@ void testApp::keyReleased(int key)
 //--------------------------------------------------------------
 void testApp::mouseMoved(int x, int y )
 {
-
+    if(activeScene){
+        activeScene->mouseMoved( x,  y);
+    }
 }
 
 //--------------------------------------------------------------
 void testApp::mouseDragged(int x, int y, int button)
 {
-
+if(activeScene){
+        activeScene->mouseDragged( x,  y,  button);
+    }
 }
 
 //--------------------------------------------------------------
 void testApp::mousePressed(int x, int y, int button)
 {
-
+if(activeScene){
+        activeScene->mousePressed( x,  y,  button);
+    }
 }
 
 //--------------------------------------------------------------
 void testApp::mouseReleased(int x, int y, int button)
 {
-
+    if(activeScene){
+        activeScene->mouseReleased( x,  y,  button);
+    }
 }
 
 //--------------------------------------------------------------

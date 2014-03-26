@@ -10,7 +10,7 @@ void darknessFollowsScene::setup()
 
     ofTrueTypeFont::setGlobalDpi(72);
 
-	font.loadFont("verdana.ttf", 24, true, true);
+    font.loadFont("verdana.ttf", 24, true, true);
 
     name = "Darkness Follows";
 
@@ -40,8 +40,9 @@ void darknessFollowsScene::setup()
     white.diffuseColor = ofVec4f(255,255,255,255);
 
     int addressMap[] = {1,3,5,
-                    7,9,11,
-                    13,15,17};
+                        7,9,11,
+                        13,15,17
+                       };
 
     int addressIndex = 0;
 
@@ -49,7 +50,7 @@ void darknessFollowsScene::setup()
 
     for(int x = 0; x < numberSpotlightsX; x++)
     {
-        for(int y = 0; y < numberSpotlightsY; y++)
+        for(int y = numberSpotlightsY-1; y >=0; y--)
         {
             ChromaWhiteSpot* cws = new ChromaWhiteSpot();
             cws->setup(addressMap[addressIndex++]);
@@ -113,13 +114,14 @@ void darknessFollowsScene::update(ola::DmxBuffer * buffer)
     double temperatureSpreadCubic = powf(temperatureSpread, 3);
     double brightnessSpreadCubic = powf(brightnessSpread, 3);
 
-    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); it++){
+    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); it++)
+    {
         ChromaWhiteSpot * cws = *(it);
-            float tempNoise = ofNoise(cws->getPosition().x*temperatureSpreadCubic, cws->getPosition().y*temperatureSpreadCubic, temperatureTime);
-            unsigned int temperature = round(ofMap(tempNoise, 0, 1, fmaxf(cws->temperatureRangeWarmKelvin, kelvinWarmRange), fminf(cws->temperatureRangeColdKelvin, kelvinColdRange)));
+        float tempNoise = ofNoise(cws->getPosition().x*temperatureSpreadCubic, cws->getPosition().y*temperatureSpreadCubic, temperatureTime);
+        unsigned int temperature = round(ofMap(tempNoise, 0, 1, fmaxf(cws->temperatureRangeWarmKelvin, kelvinWarmRange), fminf(cws->temperatureRangeColdKelvin, kelvinColdRange)));
 
-            float brightness = ofNoise(cws->getPosition().x*brightnessSpreadCubic, cws->getPosition().y*brightnessSpreadCubic, brightnessTime);
-            brightness = ofMap(brightness, 0, 1, brightnessRangeFrom, brightnessRangeTo);
+        float brightness = ofNoise(cws->getPosition().x*brightnessSpreadCubic, cws->getPosition().y*brightnessSpreadCubic, brightnessTime);
+        brightness = ofMap(brightness, 0, 1, brightnessRangeFrom, brightnessRangeTo);
 
         cws->setTemperature(temperature);
         cws->setNormalisedBrightness(brightness);
@@ -143,8 +145,29 @@ void darknessFollowsScene::draw()
     ofxOlaShaderLight::setMaterial(white);
     floor.draw();
     ofxOlaShaderLight::end();
-    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it){
+    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    {
         ChromaWhiteSpot * cws = *(it);
+        if(cws->selected)
+        {
+            ofPushStyle();
+            ofEnableDepthTest();
+            glDepthMask(GL_FALSE);
+            ofPushMatrix();
+            ofSetColor(255,0,0, 255);
+            ofVec3f v = cws->getGlobalPosition();
+            v.z *= lightZposCheat;
+            v = cam.worldToScreen(v);
+            v+= ofVec3f(0,0,-0.0025);
+            v = cam.screenToWorld(v);
+            v-= cws->getGlobalPosition();
+            ofTranslate(v);
+            cws->ofLight::draw();
+            ofPopMatrix();
+            glDepthMask(GL_TRUE);
+            ofPopStyle();
+        }
+
         cws->draw();
     }
     ofDisableLighting();
@@ -152,7 +175,8 @@ void darknessFollowsScene::draw()
     cam.end();
     ofSetColor(255, 255, 255);
     ofDisableDepthTest();
-    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it){
+    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    {
         ChromaWhiteSpot * cws = *(it);
         ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(0.99,1.,lightZposCheat*1.))+ofVec3f(12,-6,0));
         v.x -= ofGetWidth()/3.;
@@ -162,4 +186,25 @@ void darknessFollowsScene::draw()
 
 
 //    ofPopMatrix();
+}
+
+void darknessFollowsScene::mouseMoved(int x, int y)
+{
+
+    //TODO: Make mouse find a light WHAT IS UP WITH VIEWPORTS!?!?!
+    ofVec3f mouseVec = ofVec3f(x,y,0);
+    cout << mouseVec << endl;
+    mouseVec.x = ofMap(mouseVec.x, gui->getRect()->getWidth(), ofGetWidth(), gui->getRect()->getWidth(), ofGetWidth()-gui->getRect()->getWidth());
+    cout << mouseVec << endl;
+
+    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    {
+        ChromaWhiteSpot * cws = *(it);
+        ofVec3f v = cam.worldToScreen(cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.));
+        if(v.distance(mouseVec) < 20){
+            cws->selected = true;
+        } else {
+            cws->selected = false;
+        }
+    }
 }
