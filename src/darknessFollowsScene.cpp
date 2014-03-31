@@ -17,6 +17,8 @@ void darknessFollowsScene::setup()
     kelvinCold = 6500;
     kelvinWarm = 2700;
 
+    colorPickerRadius = 50;
+
     kelvinColdRange = kelvinCold;
     kelvinWarmRange = kelvinWarm;
     temperatureSpeed = 0.5;
@@ -28,6 +30,8 @@ void darknessFollowsScene::setup()
     brightnessSpeed = 0.4;
     brightnessSpread = 0.25;
     brightnessTime = 0;
+
+    manualBalance = 1.0;
 
     int numberSpotlightsX = 3;
     int numberSpotlightsY = 3;
@@ -63,6 +67,10 @@ void darknessFollowsScene::setup()
     }
 
     cam.setTranslationKey(' ');
+    cam.setTarget(ofVec3f(0,0,140));
+    cam.setOrientation(ofQuaternion(45,ofVec3f(1,0,0)));
+    cam.setDistance(600);
+    cam.disableMouseInput();
 
 }
 
@@ -106,11 +114,20 @@ void darknessFollowsScene::setGUI(ofxUISuperCanvas* gui)
     guiWidgets.push_back(sBrightnessSpread);
     guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel(""));
+    guiWidgets.push_back(gui->addLabel("Manual", OFX_UI_FONT_LARGE));
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel("Balance", OFX_UI_FONT_SMALL));
+    ofxUISlider * sManualBalance = gui->addSlider("mBalance",0.0,1.0,&manualBalance, gui->getRect()->getWidth()-8, 20);
+    sManualBalance->setColorBack(ofColor(48,48,48));
+    sManualBalance->setColorFillHighlight(ofColor(255,0,0));
+    sManualBalance->setColorOutlineHighlight(ofColor(255,0,0));
+    guiWidgets.push_back(sManualBalance);
+    guiWidgets.push_back(gui->addSpacer());
+
 }
 
 void darknessFollowsScene::update(ola::DmxBuffer * buffer)
 {
-
     double temperatureSpreadCubic = powf(temperatureSpread, 3);
     double brightnessSpreadCubic = powf(brightnessSpread, 3);
 
@@ -124,8 +141,10 @@ void darknessFollowsScene::update(ola::DmxBuffer * buffer)
         brightness = ofMap(brightness, 0, 1, brightnessRangeFrom, brightnessRangeTo);
 
         if(cws->manual || cws->selected ){
-            cws->setTemperature(cws->manualTemperature);
-            cws->setNormalisedBrightness(cws->manualBrightness);
+            int balancedTemperature((manualBalance*cws->manualTemperature)+(temperature*(1.0-manualBalance)));
+            float balancedBrightness((manualBalance*cws->manualBrightness)+(brightness*(1.0-manualBalance)));
+            cws->setTemperature(balancedTemperature);
+            cws->setNormalisedBrightness(balancedBrightness);
         } else {
             cws->setTemperature(temperature);
             cws->setNormalisedBrightness(brightness);
@@ -201,32 +220,33 @@ void darknessFollowsScene::draw()
         if(cws->selected){
         ofFloatColor fromTemp(DMXfixture::temperatureToColor(cws->temperatureRangeWarmKelvin));
         ofFloatColor toTemp(DMXfixture::temperatureToColor(cws->temperatureRangeColdKelvin));
+        fromTemp.a = 0.5;
+        toTemp.a = 0.5;
         ofMesh mesh;
-        float radius(50);
-        mesh.addVertex(ofPoint(-radius,-radius,0)); // make a new vertex
+        mesh.addVertex(ofPoint(-colorPickerRadius,-colorPickerRadius,0)); // make a new vertex
         mesh.addColor(fromTemp);  // add a color at that vertex
-        mesh.addVertex(ofPoint(radius,-radius,0)); // make a new vertex
+        mesh.addVertex(ofPoint(colorPickerRadius,-colorPickerRadius,0)); // make a new vertex
         mesh.addColor(toTemp);  // add a color at that vertex
-        mesh.addVertex(ofPoint(radius,radius,0)); // make a new vertex
+        mesh.addVertex(ofPoint(colorPickerRadius,colorPickerRadius,0)); // make a new vertex
         mesh.addColor(fromTemp*0);  // add a color at that vertex
-        mesh.addVertex(ofPoint(radius,radius,0)); // make a new vertex
+        mesh.addVertex(ofPoint(colorPickerRadius,colorPickerRadius,0)); // make a new vertex
         mesh.addColor(fromTemp*0);  // add a color at that vertex
-        mesh.addVertex(ofPoint(-radius,radius,0)); // make a new vertex
+        mesh.addVertex(ofPoint(-colorPickerRadius,colorPickerRadius,0)); // make a new vertex
         mesh.addColor(toTemp*0);  // add a color at that vertex
-        mesh.addVertex(ofPoint(-radius,-radius,0)); // make a new vertex
+        mesh.addVertex(ofPoint(-colorPickerRadius,-colorPickerRadius,0)); // make a new vertex
         mesh.addColor(fromTemp);  // add a color at that vertex
 
         ofVec3f currentPos(
-                           ofMap(cws->getTemperature(), cws->temperatureRangeWarmKelvin, cws->temperatureRangeColdKelvin, radius, -radius),
-                           ofMap(cws->getNormalisedBrightness(),0, 1, -radius, radius),
+                           ofMap(cws->getTemperature(), cws->temperatureRangeWarmKelvin, cws->temperatureRangeColdKelvin, colorPickerRadius, -colorPickerRadius),
+                           ofMap(cws->getNormalisedBrightness(),0, 1, -colorPickerRadius, colorPickerRadius),
                             0
                            );
 
         ofPushMatrix();
             ofTranslate(ofGetMouseX(), ofGetMouseY(), 0);
             ofTranslate(currentPos);
-            ofSetColor(0,0,0,127);
-            ofRect(-radius-3, -radius-3, 6+(radius*2),6+(radius*2));
+            ofSetColor(0,0,0,64);
+            ofRect(-colorPickerRadius-3, -colorPickerRadius-3, 6+(colorPickerRadius*2),6+(colorPickerRadius*2));
             mesh.draw();
         ofPopMatrix();
         }
@@ -249,28 +269,29 @@ void darknessFollowsScene::mouseMoved(int x, int y)
         if(v.distance(mouseVec) < 30){
             cws->selected = true;
             oneIsSelected = true;
+            cws->manualTemperature = cws->getTemperature();
+            cws->manualBrightness = cws->getNormalisedBrightness();
         } else {
             cws->selected = false;
         }
     }
     if(oneIsSelected){
-        cam.disableMouseInput();
+//        cam.disableMouseInput();
     } else {
-        cam.enableMouseInput();
+//        cam.enableMouseInput();
     }
 }
 
 void darknessFollowsScene::mousePressed(int x, int y, int button){
 
     mouseVec = ofVec3f(x,y,0);
+    millisLastClick = ofGetElapsedTimeMillis();
 
     for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
     {
         ChromaWhiteSpot * cws = *(it);
         ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
         v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
-        if(cws->selected){
-        }
     }
 
 }
@@ -284,8 +305,12 @@ void darknessFollowsScene::mouseReleased(int x, int y, int button){
         ChromaWhiteSpot * cws = *(it);
         ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
         v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
-        if(v.distance(mouseVec) < 30){
-            cws->manual ^= true;
+        if(cws->selected){
+            if(cws->manual && ofGetElapsedTimeMillis() - millisLastClick < 500 ){
+                cws->manual = false;
+            } else {
+                cws->manual = true;
+            }
         }
     }
 
@@ -301,8 +326,12 @@ void darknessFollowsScene::mouseDragged(int x, int y, int button){
         if(cws->selected){
 
             //TODO: make temperature navigation
-            cws->manualTemperature += ofMap((mouseVec.x-x), -50, 50, cws->temperatureRangeWarmKelvin, cws->temperatureRangeColdKelvin);
-            cws->manualBrightness += (mouseVec.y-y)/100.0;
+
+            float manualTemperatureNormalised = ofMap(cws->manualTemperature, cws->temperatureRangeWarmKelvin, cws->temperatureRangeColdKelvin, 0.0, 1.0);
+            manualTemperatureNormalised = ofClamp(manualTemperatureNormalised + ((x-mouseVec.x)/(colorPickerRadius*2.0)), 0.0, 1.0);
+
+            cws->manualTemperature = ofMap(manualTemperatureNormalised,0.0,1.0,cws->temperatureRangeWarmKelvin, cws->temperatureRangeColdKelvin);
+            cws->manualBrightness = ofClamp(cws->manualBrightness + ((mouseVec.y-y)/(colorPickerRadius*2.0)),0.0,1.0);
         }
     }
     mouseVec = ofVec3f(x,y,0);

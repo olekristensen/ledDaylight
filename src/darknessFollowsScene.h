@@ -78,6 +78,8 @@ public:
     float brightnessTime;
     float brightnessSpread;
 
+    float manualBalance;
+
     ofEasyCam cam;
 
     float timeOffset = 100.0;
@@ -86,6 +88,8 @@ public:
     float lightZposCheat = LIGHT_POS_Z_CHEAT;
 
     ofTrueTypeFont font;
+    float colorPickerRadius;
+    int millisLastClick;
 
     ofVec3f mouseVec;
     ofVec3f mouseVecAfter;
