@@ -10,7 +10,7 @@ void darknessFollowsScene::setup()
 
     ofTrueTypeFont::setGlobalDpi(72);
 
-    font.loadFont("verdana.ttf", 24, true, true);
+    font.loadFont("verdana.ttf", 18, true, true);
 
     name = "Darkness Follows";
 
@@ -73,17 +73,17 @@ void darknessFollowsScene::setGUI(ofxUISuperCanvas* gui)
     guiWidgets.push_back(gui->addLabel("Temperature", OFX_UI_FONT_LARGE));
     guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Range", OFX_UI_FONT_SMALL));
-    ofxUIRangeSlider * rTemp = gui->addRangeSlider("tRange", kelvinWarm, kelvinCold, &kelvinWarmRange, &kelvinColdRange, gui->getRect()->getWidth()-8, 30);
+    ofxUIRangeSlider * rTemp = gui->addRangeSlider("tRange", kelvinWarm, kelvinCold, &kelvinWarmRange, &kelvinColdRange, gui->getRect()->getWidth()-8, 20);
     rTemp->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(rTemp);
     guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Speed", OFX_UI_FONT_SMALL));
-    ofxUISlider * sTempSpeed = gui->addSlider("tSpeed",0,1,&temperatureSpeed, gui->getRect()->getWidth()-8, 30);
+    ofxUISlider * sTempSpeed = gui->addSlider("tSpeed",0,1,&temperatureSpeed, gui->getRect()->getWidth()-8, 20);
     sTempSpeed->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(sTempSpeed);
     guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Spread", OFX_UI_FONT_SMALL));
-    ofxUISlider * sTempSpread = gui->addSlider("tSpread",0,0.33,&temperatureSpread, gui->getRect()->getWidth()-8, 30);
+    ofxUISlider * sTempSpread = gui->addSlider("tSpread",0,0.33,&temperatureSpread, gui->getRect()->getWidth()-8, 20);
     sTempSpread->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(sTempSpread);
     guiWidgets.push_back(gui->addSpacer());
@@ -91,17 +91,17 @@ void darknessFollowsScene::setGUI(ofxUISuperCanvas* gui)
     guiWidgets.push_back(gui->addLabel("Brightness", OFX_UI_FONT_LARGE));
     guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Range", OFX_UI_FONT_SMALL));
-    ofxUIRangeSlider * rBrightness = gui->addRangeSlider("bRange", 0, 1, &brightnessRangeFrom, &brightnessRangeTo, gui->getRect()->getWidth()-8, 30);
+    ofxUIRangeSlider * rBrightness = gui->addRangeSlider("bRange", 0, 1, &brightnessRangeFrom, &brightnessRangeTo, gui->getRect()->getWidth()-8, 20);
     rBrightness->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(rBrightness);
     guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Speed", OFX_UI_FONT_SMALL));
-    ofxUISlider * sBrightnessSpeed = gui->addSlider("bSpeed",0,1,&brightnessSpeed, gui->getRect()->getWidth()-8, 30);
+    ofxUISlider * sBrightnessSpeed = gui->addSlider("bSpeed",0,1,&brightnessSpeed, gui->getRect()->getWidth()-8, 20);
     sBrightnessSpeed->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(sBrightnessSpeed);
     guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Spread", OFX_UI_FONT_SMALL));
-    ofxUISlider * sBrightnessSpread = gui->addSlider("bSpread",0,0.33,&brightnessSpread, gui->getRect()->getWidth()-8, 30);
+    ofxUISlider * sBrightnessSpread = gui->addSlider("bSpread",0,0.33,&brightnessSpread, gui->getRect()->getWidth()-8, 20);
     sBrightnessSpread->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(sBrightnessSpread);
     guiWidgets.push_back(gui->addSpacer());
@@ -123,8 +123,13 @@ void darknessFollowsScene::update(ola::DmxBuffer * buffer)
         float brightness = ofNoise(cws->getPosition().x*brightnessSpreadCubic, cws->getPosition().y*brightnessSpreadCubic, brightnessTime);
         brightness = ofMap(brightness, 0, 1, brightnessRangeFrom, brightnessRangeTo);
 
-        cws->setTemperature(temperature);
-        cws->setNormalisedBrightness(brightness);
+        if(cws->manual || cws->selected ){
+            cws->setTemperature(cws->manualTemperature);
+            cws->setNormalisedBrightness(cws->manualBrightness);
+        } else {
+            cws->setTemperature(temperature);
+            cws->setNormalisedBrightness(brightness);
+        }
     }
     ofxOlaShaderLight::update();
 
@@ -148,13 +153,21 @@ void darknessFollowsScene::draw()
     for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
     {
         ChromaWhiteSpot * cws = *(it);
-        if(cws->selected)
+        if(cws->selected || cws->manual)
         {
             ofPushStyle();
             ofEnableDepthTest();
             glDepthMask(GL_FALSE);
             ofPushMatrix();
-            ofSetColor(255,0,0, 255);
+            if(cws->selected){
+                ofSetColor(0,255,0, 255);
+            }
+            if(cws->manual){
+                ofSetColor(255,0,0, 255);
+            }
+            if(cws->manual && cws->selected){
+                ofSetColor(255,255,0, 255);
+            }
             ofVec3f v = cws->getGlobalPosition();
             v.z *= lightZposCheat;
             v = cam.worldToScreen(v);
@@ -173,38 +186,124 @@ void darknessFollowsScene::draw()
     ofDisableLighting();
     ofPopStyle();
     cam.end();
-    ofSetColor(255, 255, 255);
+    ofSetColor(64, 64, 64,127);
     ofDisableDepthTest();
+    ofViewport();
+
     for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
     {
         ChromaWhiteSpot * cws = *(it);
-        ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(0.99,1.,lightZposCheat*1.))+ofVec3f(12,-6,0));
-        v.x -= ofGetWidth()/3.;
-        v.x *= ofGetWidth()/(ofGetWidth()*2./3.);
-        font.drawString(ofToString(cws->DMXstartAddress),v.x,v.y+60);
+        ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
+        v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
+        string s(ofToString(cws->DMXstartAddress));
+        font.drawString(s,v.x-(font.stringWidth(s)/2.0),v.y+(font.stringHeight(s)/2.0));
+
+        if(cws->selected){
+        ofFloatColor fromTemp(DMXfixture::temperatureToColor(cws->temperatureRangeWarmKelvin));
+        ofFloatColor toTemp(DMXfixture::temperatureToColor(cws->temperatureRangeColdKelvin));
+        ofMesh mesh;
+        float radius(50);
+        mesh.addVertex(ofPoint(-radius,-radius,0)); // make a new vertex
+        mesh.addColor(fromTemp);  // add a color at that vertex
+        mesh.addVertex(ofPoint(radius,-radius,0)); // make a new vertex
+        mesh.addColor(toTemp);  // add a color at that vertex
+        mesh.addVertex(ofPoint(radius,radius,0)); // make a new vertex
+        mesh.addColor(fromTemp*0);  // add a color at that vertex
+        mesh.addVertex(ofPoint(radius,radius,0)); // make a new vertex
+        mesh.addColor(fromTemp*0);  // add a color at that vertex
+        mesh.addVertex(ofPoint(-radius,radius,0)); // make a new vertex
+        mesh.addColor(toTemp*0);  // add a color at that vertex
+        mesh.addVertex(ofPoint(-radius,-radius,0)); // make a new vertex
+        mesh.addColor(fromTemp);  // add a color at that vertex
+
+        ofVec3f currentPos(
+                           ofMap(cws->getTemperature(), cws->temperatureRangeWarmKelvin, cws->temperatureRangeColdKelvin, radius, -radius),
+                           ofMap(cws->getNormalisedBrightness(),0, 1, -radius, radius),
+                            0
+                           );
+
+        ofPushMatrix();
+            ofTranslate(ofGetMouseX(), ofGetMouseY(), 0);
+            ofTranslate(currentPos);
+            ofSetColor(0,0,0,127);
+            ofRect(-radius-3, -radius-3, 6+(radius*2),6+(radius*2));
+            mesh.draw();
+        ofPopMatrix();
+        }
     }
-
-
 //    ofPopMatrix();
 }
 
 void darknessFollowsScene::mouseMoved(int x, int y)
 {
 
-    //TODO: Make mouse find a light WHAT IS UP WITH VIEWPORTS!?!?!
-    ofVec3f mouseVec = ofVec3f(x,y,0);
-    cout << mouseVec << endl;
-    mouseVec.x = ofMap(mouseVec.x, gui->getRect()->getWidth(), ofGetWidth(), gui->getRect()->getWidth(), ofGetWidth()-gui->getRect()->getWidth());
-    cout << mouseVec << endl;
+    mouseVec = ofVec3f(x,y,0);
+
+    bool oneIsSelected = false;
 
     for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
     {
         ChromaWhiteSpot * cws = *(it);
-        ofVec3f v = cam.worldToScreen(cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.));
-        if(v.distance(mouseVec) < 20){
+        ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
+        v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
+        if(v.distance(mouseVec) < 30){
             cws->selected = true;
+            oneIsSelected = true;
         } else {
             cws->selected = false;
         }
     }
+    if(oneIsSelected){
+        cam.disableMouseInput();
+    } else {
+        cam.enableMouseInput();
+    }
+}
+
+void darknessFollowsScene::mousePressed(int x, int y, int button){
+
+    mouseVec = ofVec3f(x,y,0);
+
+    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    {
+        ChromaWhiteSpot * cws = *(it);
+        ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
+        v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
+        if(cws->selected){
+        }
+    }
+
+}
+
+void darknessFollowsScene::mouseReleased(int x, int y, int button){
+
+    mouseVec = ofVec3f(x,y,0);
+
+    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    {
+        ChromaWhiteSpot * cws = *(it);
+        ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
+        v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
+        if(v.distance(mouseVec) < 30){
+            cws->manual ^= true;
+        }
+    }
+
+}
+
+void darknessFollowsScene::mouseDragged(int x, int y, int button){
+
+    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    {
+        ChromaWhiteSpot * cws = *(it);
+        ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
+        v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
+        if(cws->selected){
+
+            //TODO: make temperature navigation
+            cws->manualTemperature += ofMap((mouseVec.x-x), -50, 50, cws->temperatureRangeWarmKelvin, cws->temperatureRangeColdKelvin);
+            cws->manualBrightness += (mouseVec.y-y)/100.0;
+        }
+    }
+    mouseVec = ofVec3f(x,y,0);
 }

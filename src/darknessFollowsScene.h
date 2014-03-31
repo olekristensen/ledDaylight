@@ -22,6 +22,9 @@ public:
         temperatureRangeWarmKelvin = 2700;
         setNormalisedBrightness(1.0);
         selected = false;
+        manual = false;
+        manualBrightness = 1.0;
+        manualTemperature = 6500;
     };
 
     void draw()
@@ -35,6 +38,9 @@ public:
         ofPopStyle();
     };
     bool selected;
+    bool manual;
+    float manualBrightness;
+    int manualTemperature;
 };
 
 
@@ -48,6 +54,9 @@ public:
     void draw();
 
     void mouseMoved(int x, int y);
+    void mousePressed(int x, int y, int button);
+    void mouseReleased(int x, int y, int button);
+    void mouseDragged(int x, int y, int button);
 
     vector<ChromaWhiteSpot*> spotlights;
 
@@ -77,6 +86,9 @@ public:
     float lightZposCheat = LIGHT_POS_Z_CHEAT;
 
     ofTrueTypeFont font;
+
+    ofVec3f mouseVec;
+    ofVec3f mouseVecAfter;
 
 protected:
 private:

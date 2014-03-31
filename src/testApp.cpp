@@ -73,8 +73,8 @@ void testApp::setGUI()
     gui->addSpacer();
     gui->addLabel("Keep settings as xml files", OFX_UI_FONT_SMALL);
     gui->addSpacer();
-    gui->addLabelButton("Load", bLoadSettings, gui->getRect()->getWidth()-8, 30)->setColorBack(ofColor(48,48,48));
-    gui->addLabelButton("Save", bSaveSettings, gui->getRect()->getWidth()-8, 30)->setColorBack(ofColor(48,48,48));
+    gui->addLabelButton("Load", bLoadSettings, gui->getRect()->getWidth()-8, 20)->setColorBack(ofColor(48,48,48));
+    gui->addLabelButton("Save", bSaveSettings, gui->getRect()->getWidth()-8, 20)->setColorBack(ofColor(48,48,48));
     gui->addSpacer();
     gui->addFPS();
 
@@ -122,12 +122,8 @@ void testApp::guiEvent(ofxUIEventArgs &e)
                     gui->loadSettings(file.getAbsolutePath());
                 }
             }
-
         }
     }
-
-
-
 }
 
 
@@ -175,11 +171,13 @@ void testApp::draw()
     ofEnableDepthTest();
     ofEnableSmoothing();
     float viewportWidth = (ofGetWidth()-gui->getRect()->getWidth());
+    ofPushMatrix(); {
     ofViewport(gui->getRect()->getWidth(),0,viewportWidth,ofGetHeight());
 
-    activeScene->draw();
+        activeScene->draw();
 
     ofViewport();
+    } ofPopMatrix();
 
 //    cameraController.draw();
 }
