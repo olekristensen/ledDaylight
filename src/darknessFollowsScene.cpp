@@ -63,9 +63,37 @@ void darknessFollowsScene::setup()
             ofVec3f pos(x*spotlightsDistX, y*spotlightsDistY);
             pos -= posOffsetFromCenter;
             shd->setPosition(pos);
-            spotlights.push_back(shd);
+            lights.push_back(shd);
         }
     }
+
+    LupoLed* softboxFront = new LupoLed();
+    softboxFront->setup(201);
+    softboxFront->setParent(floor);
+    softboxFront->setPosition(0.0, -floor.getHeight()/2.0, 290/lightZposCheat);
+    softboxFront->setOrientation(ofQuaternion(0,ofVec3f(0,0,1)));
+    lights.push_back(softboxFront);
+
+    LupoLed* softboxLeft = new LupoLed();
+    softboxLeft->setup(203);
+    softboxLeft->setParent(floor);
+    softboxLeft->setPosition(-floor.getWidth()/2.0, 0.0, 290/lightZposCheat);
+    softboxLeft->setOrientation(ofQuaternion(45,ofVec3f(0,0,1)));
+    lights.push_back(softboxLeft);
+
+    LupoLed* softboxBack = new LupoLed();
+    softboxBack->setup(205);
+    softboxBack->setParent(floor);
+    softboxBack->setPosition(0.0, floor.getHeight()/2.0, 290/lightZposCheat);
+    softboxBack->setOrientation(ofQuaternion(180,ofVec3f(0,0,1)));
+    lights.push_back(softboxBack);
+
+    LupoLed* softboxRight = new LupoLed();
+    softboxRight->setup(207);
+    softboxRight->setParent(floor);
+    softboxRight->setPosition(floor.getWidth()/2.0, 0.0, 290/lightZposCheat);
+    softboxRight->setOrientation(ofQuaternion(270,ofVec3f(0,0,1)));
+    lights.push_back(softboxRight);
 
     cam.setTranslationKey(' ');
     cam.setTarget(ofVec3f(0,0,140));
@@ -132,9 +160,9 @@ void darknessFollowsScene::update()
     double temperatureSpreadCubic = powf(temperatureSpread, 3);
     double brightnessSpreadCubic = powf(brightnessSpread, 3);
 
-    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); it++)
+    for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); it++)
     {
-        StudioHDSpot * shd = *(it);
+        LedFixture * shd = *(it);
         float tempNoise = ofNoise(shd->getPosition().x*temperatureSpreadCubic, shd->getPosition().y*temperatureSpreadCubic, temperatureTime);
         unsigned int temperature = round(ofMap(tempNoise, 0, 1, fmaxf(shd->temperatureRangeWarmKelvin, kelvinWarmRange), fminf(shd->temperatureRangeColdKelvin, kelvinColdRange)));
 
@@ -173,9 +201,9 @@ void darknessFollowsScene::draw()
     ofxOlaShaderLight::setMaterial(white);
     floor.draw();
     ofxOlaShaderLight::end();
-    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); ++it)
     {
-        StudioHDSpot * shd = *(it);
+        LedFixture * shd = *(it);
         if(shd->selected || shd->manual)
         {
             ofPushStyle();
@@ -197,17 +225,17 @@ void darknessFollowsScene::draw()
             ofVec3f v = shd->getGlobalPosition();
             v.z *= lightZposCheat;
             v = cam.worldToScreen(v);
-            v+= ofVec3f(0,0,-0.0025);
+            v+= ofVec3f(0,0,-0.0075);
             v = cam.screenToWorld(v);
             v-= shd->getGlobalPosition();
             ofTranslate(v);
-            shd->ofLight::draw();
+            shd->drawForm();
             ofPopMatrix();
             glDepthMask(GL_TRUE);
             ofPopStyle();
         }
 
-        shd->draw();
+        shd->LedFixture::draw();
     }
     ofDisableLighting();
     ofPopStyle();
@@ -215,9 +243,9 @@ void darknessFollowsScene::draw()
     ofDisableDepthTest();
     ofViewport();
 
-    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); ++it)
     {
-        StudioHDSpot * shd = *(it);
+        LedFixture * shd = *(it);
         ofVec3f v = cam.worldToScreen((shd->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
         v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
         string s(ofToString(shd->DMXstartAddress));
@@ -270,9 +298,9 @@ void darknessFollowsScene::mouseMoved(int x, int y)
 
     bool oneIsSelected = false;
 
-    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); ++it)
     {
-        StudioHDSpot * shd = *(it);
+        LedFixture * shd = *(it);
         ofVec3f v = cam.worldToScreen((shd->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
         v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
         if(v.distance(mouseVec) < 30)
@@ -303,9 +331,9 @@ void darknessFollowsScene::mousePressed(int x, int y, int button)
     mouseVec = ofVec3f(x,y,0);
     millisLastClick = ofGetElapsedTimeMillis();
 
-    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); ++it)
     {
-        StudioHDSpot * shd = *(it);
+        LedFixture * shd = *(it);
         ofVec3f v = cam.worldToScreen((shd->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
         v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
     }
@@ -317,9 +345,9 @@ void darknessFollowsScene::mouseReleased(int x, int y, int button)
 
     mouseVec = ofVec3f(x,y,0);
 
-    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); ++it)
     {
-        StudioHDSpot * shd = *(it);
+        LedFixture * shd = *(it);
         ofVec3f v = cam.worldToScreen((shd->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
         v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
         if(shd->selected)
@@ -340,9 +368,9 @@ void darknessFollowsScene::mouseReleased(int x, int y, int button)
 void darknessFollowsScene::mouseDragged(int x, int y, int button)
 {
 
-    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); ++it)
     {
-        StudioHDSpot * shd = *(it);
+        LedFixture * shd = *(it);
         ofVec3f v = cam.worldToScreen((shd->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
         v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
         if(shd->selected)

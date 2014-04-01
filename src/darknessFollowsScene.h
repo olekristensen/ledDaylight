@@ -16,7 +16,7 @@ public:
     void mouseReleased(int x, int y, int button);
     void mouseDragged(int x, int y, int button);
 
-    vector<StudioHDSpot*> spotlights;
+    vector<LedFixture*> lights;
 
     ofPlanePrimitive floor;
     ofxOlaShaderLight::Material white;
