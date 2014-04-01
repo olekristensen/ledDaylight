@@ -33,8 +33,8 @@ void darknessFollowsScene::setup()
 
     manualBalance = 1.0;
 
-    int numberSpotlightsX = 3;
-    int numberSpotlightsY = 4;
+    int numberSpotlightsX = 4;
+    int numberSpotlightsY = 3;
     float spotlightsDistX = 110;
     float spotlightsDistY = 85/4.0*3.0;
     float spotlightsPosZ = -285/lightZposCheat;
