@@ -1,9 +1,6 @@
 #pragma once
 #include "ofMain.h"
 #include "LedFixture.h"
-#include <ola/DmxBuffer.h>
-#include <ola/Logging.h>
-#include <ola/StreamingClient.h>
 #include "ofxUI.h"
 
 class ledScene
@@ -13,7 +10,7 @@ public:
     ~ledScene();
     virtual void setup() {};
     virtual void draw() {};
-    virtual void update(ola::DmxBuffer * buffer) {};
+    virtual void update() {};
     virtual void setGUI(ofxUISuperCanvas* gui)
     {
         this->gui = gui;

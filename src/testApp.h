@@ -3,9 +3,6 @@
 #include "ofMain.h"
 #include "pgCamera.h"
 #include "CameraController.h"
-#include <ola/DmxBuffer.h>
-#include <ola/Logging.h>
-#include <ola/StreamingClient.h>
 #include "fullScreenDialogs.h"
 #include "ofxUI.h"
 #include "darknessFollowsScene.h"
@@ -37,8 +34,8 @@ protected:
 
     CameraController cameraController;
 
-    ola::DmxBuffer buffer;
-    ola::StreamingClient ola_client;
+    //ola::DmxBuffer buffer;
+    //ola::StreamingClient ola_client;
 
     vector<ledScene*> scenes;
     ledScene * activeScene;

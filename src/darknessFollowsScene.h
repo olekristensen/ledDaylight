@@ -1,6 +1,5 @@
 #pragma once
 #include "ledScene.h"
-#include "ofxOlaShaderLight.h"
 #include "LedFixture.h"
 
 class darknessFollowsScene : public ledScene
@@ -9,7 +8,7 @@ public:
     darknessFollowsScene();
     void setup();
     void setGUI(ofxUISuperCanvas* gui);
-    void update(ola::DmxBuffer * buffer);
+    void update();
     void draw();
 
     void mouseMoved(int x, int y);

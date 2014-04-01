@@ -127,7 +127,7 @@ void darknessFollowsScene::setGUI(ofxUISuperCanvas* gui)
 
 }
 
-void darknessFollowsScene::update(ola::DmxBuffer * buffer)
+void darknessFollowsScene::update()
 {
     double temperatureSpreadCubic = powf(temperatureSpread, 3);
     double brightnessSpreadCubic = powf(brightnessSpread, 3);

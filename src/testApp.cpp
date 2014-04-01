@@ -131,7 +131,7 @@ void testApp::guiEvent(ofxUIEventArgs &e)
 void testApp::update()
 {
 
-    buffer.Blackout();
+//    buffer.Blackout();
 
     ofxUIRadio * rSceneNames = (ofxUIRadio*) gui->getWidget("sceneName");
     string activeSceneName = rSceneNames->getActive()->getName();
@@ -153,7 +153,7 @@ void testApp::update()
         }
     }
 
-    activeScene->update(&buffer);
+    activeScene->update();
 
 /*    if (!ola_client.SendDmx(0, buffer))
     {
