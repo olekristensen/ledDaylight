@@ -35,8 +35,8 @@ void darknessFollowsScene::setup()
 
     int numberSpotlightsX = 4;
     int numberSpotlightsY = 3;
-    float spotlightsDistX = 110;
-    float spotlightsDistY = 85/4.0*3.0;
+    float spotlightsDistX = 65;
+    float spotlightsDistY = 85;
     float spotlightsPosZ = -285/lightZposCheat;
 
     floor.set(285,300,100,100);

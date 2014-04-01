@@ -47,7 +47,7 @@ void testApp::setGUI()
         sceneNames.push_back(s->name);
     }
 
-    gui = new ofxUISuperCanvas("LEDlys Coltrol 1.1b");
+    gui = new ofxUISuperCanvas("LEDlys Coltrol 1.5b");
 
 //    gui->addLabel("Press 'h' to Hide GUIs", OFX_UI_FONT_SMALL);
     gui->setWidth(ofGetWidth()/3.);
