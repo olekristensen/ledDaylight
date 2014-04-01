@@ -2,6 +2,88 @@
 #include "ofMain.h"
 #include "ofxOlaShaderLight.h"
 
+#define LIGHT_POS_Z_CHEAT 4.0
+
+class ChromaWhiteSpot : public ofxOlaShaderLight
+{
+public:
+
+    void setup(unsigned int startAddress = 0)
+    {
+        DMXstartAddress = startAddress;
+        if(startAddress > 0)
+        {
+            DMXchannels.push_back(new DMXchannel(startAddress, DMXchannel::DMX_CHANNEL_COLOR_TEMPERATURE, false));
+            DMXchannels.push_back(new DMXchannel(startAddress+1, DMXchannel::DMX_CHANNEL_BRIGHTNESS, false));
+        }
+        ofLight::setSpotlight();
+        setAttenuation(1./.1);
+        temperatureRangeColdKelvin = 6500;
+        temperatureRangeWarmKelvin = 2700;
+        setNormalisedBrightness(1.0);
+        selected = false;
+        manual = false;
+        manualBrightness = 1.0;
+        manualTemperature = 6500;
+    };
+
+    void draw()
+    {
+        ofPushStyle();
+        ofPushMatrix();
+        ofTranslate(0,0,getPosition().z*(LIGHT_POS_Z_CHEAT-1));
+        ofSetColor(ofLight::getDiffuseColor());
+        ofLight::draw();
+        ofPopMatrix();
+        ofPopStyle();
+    };
+    bool selected;
+    bool manual;
+    float manualBrightness;
+    int manualTemperature;
+    int addressInterval = 2;
+};
+
+class StudioHDSpot : public ofxOlaShaderLight
+{
+public:
+
+    void setup(unsigned int startAddress = 0)
+    {
+        DMXstartAddress = startAddress;
+        if(startAddress > 0)
+        {
+            DMXchannels.push_back(new DMXchannel(startAddress, DMXchannel::DMX_CHANNEL_BRIGHTNESS, false));
+            DMXchannels.push_back(new DMXchannel(startAddress+1, DMXchannel::DMX_CHANNEL_COLOR_TEMPERATURE, false));
+        }
+        ofLight::setSpotlight();
+        setAttenuation(1./.1);
+        temperatureRangeColdKelvin = 6500;
+        temperatureRangeWarmKelvin = 2700;
+        setNormalisedBrightness(1.0);
+        selected = false;
+        manual = false;
+        manualBrightness = 1.0;
+        manualTemperature = 6500;
+    };
+
+    void draw()
+    {
+        ofPushStyle();
+        ofPushMatrix();
+        ofTranslate(0,0,getPosition().z*(LIGHT_POS_Z_CHEAT-1));
+        ofSetColor(ofLight::getDiffuseColor());
+        ofLight::draw();
+        ofPopMatrix();
+        ofPopStyle();
+    };
+    bool selected;
+    bool manual;
+    float manualBrightness;
+    int manualTemperature;
+    int addressInterval = 5;
+};
+
 class LedFixture
 {
 

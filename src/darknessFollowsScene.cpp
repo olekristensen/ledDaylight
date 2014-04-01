@@ -34,18 +34,19 @@ void darknessFollowsScene::setup()
     manualBalance = 1.0;
 
     int numberSpotlightsX = 3;
-    int numberSpotlightsY = 3;
+    int numberSpotlightsY = 4;
     float spotlightsDistX = 110;
-    float spotlightsDistY = 85;
+    float spotlightsDistY = 85/4.0*3.0;
     float spotlightsPosZ = -285/lightZposCheat;
 
     floor.set(285,300,100,100);
 
     white.diffuseColor = ofVec4f(255,255,255,255);
 
-    int addressMap[] = {1,3,5,
-                        7,9,11,
-                        13,15,17
+    int addressMap[] = {1,6,11,
+                        16,21,26,
+                        31,36,41,
+                        46,51,56
                        };
 
     int addressIndex = 0;
@@ -54,15 +55,15 @@ void darknessFollowsScene::setup()
 
     for(int x = 0; x < numberSpotlightsX; x++)
     {
-        for(int y = numberSpotlightsY-1; y >=0; y--)
+        for(int y = 0; y < numberSpotlightsY; y++)
         {
-            ChromaWhiteSpot* cws = new ChromaWhiteSpot();
-            cws->setup(addressMap[addressIndex++]);
-            cws->setParent(floor);
+            StudioHDSpot* shd = new StudioHDSpot();
+            shd->setup(addressMap[addressIndex++]);
+            shd->setParent(floor);
             ofVec3f pos(x*spotlightsDistX, y*spotlightsDistY);
             pos -= posOffsetFromCenter;
-            cws->setPosition(pos);
-            spotlights.push_back(cws);
+            shd->setPosition(pos);
+            spotlights.push_back(shd);
         }
     }
 
@@ -131,23 +132,26 @@ void darknessFollowsScene::update(ola::DmxBuffer * buffer)
     double temperatureSpreadCubic = powf(temperatureSpread, 3);
     double brightnessSpreadCubic = powf(brightnessSpread, 3);
 
-    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); it++)
+    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); it++)
     {
-        ChromaWhiteSpot * cws = *(it);
-        float tempNoise = ofNoise(cws->getPosition().x*temperatureSpreadCubic, cws->getPosition().y*temperatureSpreadCubic, temperatureTime);
-        unsigned int temperature = round(ofMap(tempNoise, 0, 1, fmaxf(cws->temperatureRangeWarmKelvin, kelvinWarmRange), fminf(cws->temperatureRangeColdKelvin, kelvinColdRange)));
+        StudioHDSpot * shd = *(it);
+        float tempNoise = ofNoise(shd->getPosition().x*temperatureSpreadCubic, shd->getPosition().y*temperatureSpreadCubic, temperatureTime);
+        unsigned int temperature = round(ofMap(tempNoise, 0, 1, fmaxf(shd->temperatureRangeWarmKelvin, kelvinWarmRange), fminf(shd->temperatureRangeColdKelvin, kelvinColdRange)));
 
-        float brightness = ofNoise(cws->getPosition().x*brightnessSpreadCubic, cws->getPosition().y*brightnessSpreadCubic, brightnessTime);
+        float brightness = ofNoise(shd->getPosition().x*brightnessSpreadCubic, shd->getPosition().y*brightnessSpreadCubic, brightnessTime);
         brightness = ofMap(brightness, 0, 1, brightnessRangeFrom, brightnessRangeTo);
 
-        if(cws->manual || cws->selected ){
-            int balancedTemperature((manualBalance*cws->manualTemperature)+(temperature*(1.0-manualBalance)));
-            float balancedBrightness((manualBalance*cws->manualBrightness)+(brightness*(1.0-manualBalance)));
-            cws->setTemperature(balancedTemperature);
-            cws->setNormalisedBrightness(balancedBrightness);
-        } else {
-            cws->setTemperature(temperature);
-            cws->setNormalisedBrightness(brightness);
+        if(shd->manual || shd->selected )
+        {
+            int balancedTemperature((manualBalance*shd->manualTemperature)+(temperature*(1.0-manualBalance)));
+            float balancedBrightness((manualBalance*shd->manualBrightness)+(brightness*(1.0-manualBalance)));
+            shd->setTemperature(balancedTemperature);
+            shd->setNormalisedBrightness(balancedBrightness);
+        }
+        else
+        {
+            shd->setTemperature(temperature);
+            shd->setNormalisedBrightness(brightness);
         }
     }
     ofxOlaShaderLight::update();
@@ -169,86 +173,91 @@ void darknessFollowsScene::draw()
     ofxOlaShaderLight::setMaterial(white);
     floor.draw();
     ofxOlaShaderLight::end();
-    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
     {
-        ChromaWhiteSpot * cws = *(it);
-        if(cws->selected || cws->manual)
+        StudioHDSpot * shd = *(it);
+        if(shd->selected || shd->manual)
         {
             ofPushStyle();
             ofEnableDepthTest();
             glDepthMask(GL_FALSE);
             ofPushMatrix();
-            if(cws->selected){
+            if(shd->selected)
+            {
                 ofSetColor(0,255,0, 255);
             }
-            if(cws->manual){
+            if(shd->manual)
+            {
                 ofSetColor(255,0,0, 255);
             }
-            if(cws->manual && cws->selected){
+            if(shd->manual && shd->selected)
+            {
                 ofSetColor(255,255,0, 255);
             }
-            ofVec3f v = cws->getGlobalPosition();
+            ofVec3f v = shd->getGlobalPosition();
             v.z *= lightZposCheat;
             v = cam.worldToScreen(v);
             v+= ofVec3f(0,0,-0.0025);
             v = cam.screenToWorld(v);
-            v-= cws->getGlobalPosition();
+            v-= shd->getGlobalPosition();
             ofTranslate(v);
-            cws->ofLight::draw();
+            shd->ofLight::draw();
             ofPopMatrix();
             glDepthMask(GL_TRUE);
             ofPopStyle();
         }
 
-        cws->draw();
+        shd->draw();
     }
     ofDisableLighting();
     ofPopStyle();
     cam.end();
-    ofSetColor(64, 64, 64,127);
     ofDisableDepthTest();
     ofViewport();
 
-    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
     {
-        ChromaWhiteSpot * cws = *(it);
-        ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
+        StudioHDSpot * shd = *(it);
+        ofVec3f v = cam.worldToScreen((shd->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
         v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
-        string s(ofToString(cws->DMXstartAddress));
+        string s(ofToString(shd->DMXstartAddress));
+
+        ofSetColor(64, 64, 64,127);
         font.drawString(s,v.x-(font.stringWidth(s)/2.0),v.y+(font.stringHeight(s)/2.0));
 
-        if(cws->selected){
-        ofFloatColor fromTemp(DMXfixture::temperatureToColor(cws->temperatureRangeWarmKelvin));
-        ofFloatColor toTemp(DMXfixture::temperatureToColor(cws->temperatureRangeColdKelvin));
-        fromTemp.a = 0.5;
-        toTemp.a = 0.5;
-        ofMesh mesh;
-        mesh.addVertex(ofPoint(-colorPickerRadius,-colorPickerRadius,0)); // make a new vertex
-        mesh.addColor(fromTemp);  // add a color at that vertex
-        mesh.addVertex(ofPoint(colorPickerRadius,-colorPickerRadius,0)); // make a new vertex
-        mesh.addColor(toTemp);  // add a color at that vertex
-        mesh.addVertex(ofPoint(colorPickerRadius,colorPickerRadius,0)); // make a new vertex
-        mesh.addColor(fromTemp*0);  // add a color at that vertex
-        mesh.addVertex(ofPoint(colorPickerRadius,colorPickerRadius,0)); // make a new vertex
-        mesh.addColor(fromTemp*0);  // add a color at that vertex
-        mesh.addVertex(ofPoint(-colorPickerRadius,colorPickerRadius,0)); // make a new vertex
-        mesh.addColor(toTemp*0);  // add a color at that vertex
-        mesh.addVertex(ofPoint(-colorPickerRadius,-colorPickerRadius,0)); // make a new vertex
-        mesh.addColor(fromTemp);  // add a color at that vertex
+        if(shd->selected)
+        {
+            ofFloatColor fromTemp(DMXfixture::temperatureToColor(shd->temperatureRangeWarmKelvin));
+            ofFloatColor toTemp(DMXfixture::temperatureToColor(shd->temperatureRangeColdKelvin));
+            fromTemp.a = 0.5;
+            toTemp.a = 0.5;
+            ofMesh mesh;
+            mesh.addVertex(ofPoint(-colorPickerRadius,-colorPickerRadius,0)); // make a new vertex
+            mesh.addColor(fromTemp);  // add a color at that vertex
+            mesh.addVertex(ofPoint(colorPickerRadius,-colorPickerRadius,0)); // make a new vertex
+            mesh.addColor(toTemp);  // add a color at that vertex
+            mesh.addVertex(ofPoint(colorPickerRadius,colorPickerRadius,0)); // make a new vertex
+            mesh.addColor(fromTemp*0);  // add a color at that vertex
+            mesh.addVertex(ofPoint(colorPickerRadius,colorPickerRadius,0)); // make a new vertex
+            mesh.addColor(fromTemp*0);  // add a color at that vertex
+            mesh.addVertex(ofPoint(-colorPickerRadius,colorPickerRadius,0)); // make a new vertex
+            mesh.addColor(toTemp*0);  // add a color at that vertex
+            mesh.addVertex(ofPoint(-colorPickerRadius,-colorPickerRadius,0)); // make a new vertex
+            mesh.addColor(fromTemp);  // add a color at that vertex
 
-        ofVec3f currentPos(
-                           ofMap(cws->getTemperature(), cws->temperatureRangeWarmKelvin, cws->temperatureRangeColdKelvin, colorPickerRadius, -colorPickerRadius),
-                           ofMap(cws->getNormalisedBrightness(),0, 1, -colorPickerRadius, colorPickerRadius),
-                            0
-                           );
+            ofVec3f currentPos(
+                ofMap(shd->getTemperature(), shd->temperatureRangeWarmKelvin, shd->temperatureRangeColdKelvin, colorPickerRadius, -colorPickerRadius),
+                ofMap(shd->getNormalisedBrightness(),0, 1, -colorPickerRadius, colorPickerRadius),
+                0
+            );
 
-        ofPushMatrix();
+            ofPushMatrix();
             ofTranslate(ofGetMouseX(), ofGetMouseY(), 0);
             ofTranslate(currentPos);
             ofSetColor(0,0,0,64);
             ofRect(-colorPickerRadius-3, -colorPickerRadius-3, 6+(colorPickerRadius*2),6+(colorPickerRadius*2));
             mesh.draw();
-        ofPopMatrix();
+            ofPopMatrix();
         }
     }
 //    ofPopMatrix();
@@ -261,77 +270,91 @@ void darknessFollowsScene::mouseMoved(int x, int y)
 
     bool oneIsSelected = false;
 
-    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
     {
-        ChromaWhiteSpot * cws = *(it);
-        ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
+        StudioHDSpot * shd = *(it);
+        ofVec3f v = cam.worldToScreen((shd->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
         v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
-        if(v.distance(mouseVec) < 30){
-            cws->selected = true;
+        if(v.distance(mouseVec) < 30)
+        {
+            shd->selected = true;
             oneIsSelected = true;
-            cws->manualTemperature = cws->getTemperature();
-            cws->manualBrightness = cws->getNormalisedBrightness();
-        } else {
-            cws->selected = false;
+            shd->manualTemperature = shd->getTemperature();
+            shd->manualBrightness = shd->getNormalisedBrightness();
+        }
+        else
+        {
+            shd->selected = false;
         }
     }
-    if(oneIsSelected){
+    if(oneIsSelected)
+    {
 //        cam.disableMouseInput();
-    } else {
+    }
+    else
+    {
 //        cam.enableMouseInput();
     }
 }
 
-void darknessFollowsScene::mousePressed(int x, int y, int button){
+void darknessFollowsScene::mousePressed(int x, int y, int button)
+{
 
     mouseVec = ofVec3f(x,y,0);
     millisLastClick = ofGetElapsedTimeMillis();
 
-    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
     {
-        ChromaWhiteSpot * cws = *(it);
-        ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
+        StudioHDSpot * shd = *(it);
+        ofVec3f v = cam.worldToScreen((shd->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
         v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
     }
 
 }
 
-void darknessFollowsScene::mouseReleased(int x, int y, int button){
+void darknessFollowsScene::mouseReleased(int x, int y, int button)
+{
 
     mouseVec = ofVec3f(x,y,0);
 
-    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
     {
-        ChromaWhiteSpot * cws = *(it);
-        ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
+        StudioHDSpot * shd = *(it);
+        ofVec3f v = cam.worldToScreen((shd->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
         v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
-        if(cws->selected){
-            if(cws->manual && ofGetElapsedTimeMillis() - millisLastClick < 500 ){
-                cws->manual = false;
-            } else {
-                cws->manual = true;
+        if(shd->selected)
+        {
+            if(shd->manual && ofGetElapsedTimeMillis() - millisLastClick < 500 )
+            {
+                shd->manual = false;
+            }
+            else
+            {
+                shd->manual = true;
             }
         }
     }
 
 }
 
-void darknessFollowsScene::mouseDragged(int x, int y, int button){
+void darknessFollowsScene::mouseDragged(int x, int y, int button)
+{
 
-    for(vector<ChromaWhiteSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
+    for(vector<StudioHDSpot*>::iterator it = spotlights.begin(); it != spotlights.end(); ++it)
     {
-        ChromaWhiteSpot * cws = *(it);
-        ofVec3f v = cam.worldToScreen((cws->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
+        StudioHDSpot * shd = *(it);
+        ofVec3f v = cam.worldToScreen((shd->getGlobalPosition()*ofVec3f(1.,1.,lightZposCheat*1.)));
         v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
-        if(cws->selected){
+        if(shd->selected)
+        {
 
             //TODO: make temperature navigation
 
-            float manualTemperatureNormalised = ofMap(cws->manualTemperature, cws->temperatureRangeWarmKelvin, cws->temperatureRangeColdKelvin, 0.0, 1.0);
+            float manualTemperatureNormalised = ofMap(shd->manualTemperature, shd->temperatureRangeWarmKelvin, shd->temperatureRangeColdKelvin, 0.0, 1.0);
             manualTemperatureNormalised = ofClamp(manualTemperatureNormalised + ((x-mouseVec.x)/(colorPickerRadius*2.0)), 0.0, 1.0);
 
-            cws->manualTemperature = ofMap(manualTemperatureNormalised,0.0,1.0,cws->temperatureRangeWarmKelvin, cws->temperatureRangeColdKelvin);
-            cws->manualBrightness = ofClamp(cws->manualBrightness + ((mouseVec.y-y)/(colorPickerRadius*2.0)),0.0,1.0);
+            shd->manualTemperature = ofMap(manualTemperatureNormalised,0.0,1.0,shd->temperatureRangeWarmKelvin, shd->temperatureRangeColdKelvin);
+            shd->manualBrightness = ofClamp(shd->manualBrightness + ((mouseVec.y-y)/(colorPickerRadius*2.0)),0.0,1.0);
         }
     }
     mouseVec = ofVec3f(x,y,0);
