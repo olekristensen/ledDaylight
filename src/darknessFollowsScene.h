@@ -20,6 +20,7 @@ public:
 
     ofPlanePrimitive floor;
     ofxOlaShaderLight::Material white;
+    ofxOlaShaderLight::Material ballMaterial;
 
     unsigned int kelvinCold;
     unsigned int kelvinWarm;
@@ -38,6 +39,14 @@ public:
 
     float manualBalance;
 
+    float kelvinWarmRangePos;
+    float kelvinColdRangePos;
+
+    float brightnessRangeFromPos;
+    float brightnessRangeToPos;
+
+    float posSize;
+
     ofEasyCam cam;
 
     float timeOffset = 100.0;
@@ -50,7 +59,7 @@ public:
     int millisLastClick;
 
     ofVec3f mouseVec;
-    ofVec3f mouseVecAfter;
+    ofVec3f floorVec;
 
 protected:
 private:

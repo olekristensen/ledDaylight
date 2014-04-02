@@ -10,7 +10,7 @@ void darknessFollowsScene::setup()
 
     ofTrueTypeFont::setGlobalDpi(72);
 
-    font.loadFont("verdana.ttf", 18, true, true);
+    font.loadFont("GUI/DroidSans.ttf", 18, true, true);
 
     name = "Darkness Follows";
 
@@ -31,17 +31,30 @@ void darknessFollowsScene::setup()
     brightnessSpread = 0.25;
     brightnessTime = 0;
 
+    brightnessRangeFromPos = brightnessRangeFrom;
+    brightnessRangeToPos = brightnessRangeTo;
+
+    kelvinColdRangePos = kelvinColdRange;
+    kelvinWarmRangePos = kelvinWarmRange;
+
+    posSize = 0.0;
+
     manualBalance = 1.0;
+
+    floor.set(285,300,100,100);
+
+    white.diffuseColor = ofVec4f(255,255,255,255);
+    ballMaterial.diffuseColor = ofVec4f(159,159,159,255);
+    ballMaterial.specularColor = ofVec4f(255,255,255,255);
+    ballMaterial.specularShininess = 0.33;
+
+    // add StudioHDs
 
     int numberSpotlightsX = 4;
     int numberSpotlightsY = 3;
     float spotlightsDistX = 65;
     float spotlightsDistY = 85;
     float spotlightsPosZ = -285/lightZposCheat;
-
-    floor.set(285,300,100,100);
-
-    white.diffuseColor = ofVec4f(255,255,255,255);
 
     int addressMap[] = {1,6,11,
                         16,21,26,
@@ -66,6 +79,8 @@ void darknessFollowsScene::setup()
             lights.push_back(shd);
         }
     }
+
+    // Add lupoleds
 
     LupoLed* softboxFront = new LupoLed();
     softboxFront->setup(201);
@@ -94,6 +109,21 @@ void darknessFollowsScene::setup()
     softboxRight->setPosition(floor.getWidth()/2.0, 0.0, 290/lightZposCheat);
     softboxRight->setOrientation(ofQuaternion(270,ofVec3f(0,0,1)));
     lights.push_back(softboxRight);
+
+    // Add balls
+
+    ChromaWhiteBall * ballLeft = new ChromaWhiteBall();
+    ballLeft->setup(301);
+    ballLeft->setParent(floor);
+    ballLeft->setPosition(-floor.getWidth()/4.0, floor.getHeight()/5.0, 260/lightZposCheat);
+    lights.push_back(ballLeft);
+
+    ChromaWhiteBall * ballRight = new ChromaWhiteBall();
+    ballRight->setup(303);
+    ballRight->setParent(floor);
+    ballRight->setPosition(floor.getWidth()/4.0, floor.getHeight()/5.0, 260/lightZposCheat);
+    lights.push_back(ballRight);
+
 
     cam.setTranslationKey(' ');
     cam.setTarget(ofVec3f(0,0,140));
@@ -152,8 +182,26 @@ void darknessFollowsScene::setGUI(ofxUISuperCanvas* gui)
     sManualBalance->setColorOutlineHighlight(ofColor(255,0,0));
     guiWidgets.push_back(sManualBalance);
     guiWidgets.push_back(gui->addSpacer());
-
-}
+    guiWidgets.push_back(gui->addLabel(""));
+    guiWidgets.push_back(gui->addLabel("Position", OFX_UI_FONT_LARGE));
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel("Temperature", OFX_UI_FONT_SMALL));
+    ofxUIRangeSlider * rTempPos = gui->addRangeSlider("tRangePos", kelvinWarm, kelvinCold, &kelvinWarmRangePos, &kelvinColdRangePos, gui->getRect()->getWidth()-8, 20);
+    rTempPos->setColorBack(ofColor(48,48,48));
+    guiWidgets.push_back(rTempPos);
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel("Brightness", OFX_UI_FONT_SMALL));
+    ofxUIRangeSlider * rBrightnessPos = gui->addRangeSlider("bRangePos", 0, 1, &brightnessRangeFromPos, &brightnessRangeToPos, gui->getRect()->getWidth()-8, 20);
+    rBrightnessPos->setColorBack(ofColor(48,48,48));
+    guiWidgets.push_back(rBrightnessPos);
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel("Size", OFX_UI_FONT_SMALL));
+    ofxUISlider * sPosSize = gui->addSlider("pSize",0.0,1.0,&posSize, gui->getRect()->getWidth()-8, 20);
+    sPosSize->setColorBack(ofColor(48,48,48));
+//    sPosSize->setColorFillHighlight(ofColor(255,0,0));
+//    sPosSize->setColorOutlineHighlight(ofColor(255,0,0));
+    guiWidgets.push_back(sPosSize);
+    }
 
 void darknessFollowsScene::update()
 {
@@ -163,11 +211,40 @@ void darknessFollowsScene::update()
     for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); it++)
     {
         LedFixture * shd = *(it);
+
+        ofVec3f vecOnFloor(shd->getGlobalPosition().x,shd->getGlobalPosition().y,floor.getGlobalPosition().z);
+
+        float distToFloorVec = vecOnFloor.distance(floorVec);
+        float distToFloorVecNormalised = distToFloorVec/floor.getWidth();
+
+        float bRangeFrom = brightnessRangeFrom;
+        float bRangeTo = brightnessRangeTo;
+
+        float tRangeWarm = kelvinWarmRange;
+        float tRangeCold = kelvinColdRange;
+
+        if(distToFloorVecNormalised < posSize){
+
+                float posWeighing = ofClamp(ofMap(distToFloorVecNormalised, posSize/2.0, posSize, 1.0, 0.0) ,0.0,1.0);
+
+            bRangeFrom *= (1.0-posWeighing);
+            bRangeFrom += brightnessRangeFromPos*posWeighing;
+
+            bRangeTo *= (1.0-posWeighing);
+            bRangeTo += brightnessRangeToPos*posWeighing;
+
+            tRangeWarm *= (1.0-posWeighing);
+            tRangeWarm += kelvinWarmRangePos*posWeighing;
+
+            tRangeCold *= (1.0-posWeighing);
+            tRangeCold += kelvinColdRangePos*posWeighing;
+        }
+
         float tempNoise = ofNoise(shd->getPosition().x*temperatureSpreadCubic, shd->getPosition().y*temperatureSpreadCubic, temperatureTime);
-        unsigned int temperature = round(ofMap(tempNoise, 0, 1, fmaxf(shd->temperatureRangeWarmKelvin, kelvinWarmRange), fminf(shd->temperatureRangeColdKelvin, kelvinColdRange)));
+        unsigned int temperature = round(ofMap(tempNoise, 0, 1, fmaxf(shd->temperatureRangeWarmKelvin, tRangeWarm), fminf(shd->temperatureRangeColdKelvin, tRangeCold)));
 
         float brightness = ofNoise(shd->getPosition().x*brightnessSpreadCubic, shd->getPosition().y*brightnessSpreadCubic, brightnessTime);
-        brightness = ofMap(brightness, 0, 1, brightnessRangeFrom, brightnessRangeTo);
+        brightness = ofMap(brightness, 0, 1, bRangeFrom, bRangeTo);
 
         if(shd->manual || shd->selected )
         {
@@ -200,6 +277,10 @@ void darknessFollowsScene::draw()
     ofxOlaShaderLight::begin();
     ofxOlaShaderLight::setMaterial(white);
     floor.draw();
+    ofxOlaShaderLight::end();
+    ofxOlaShaderLight::begin();
+    ofxOlaShaderLight::setMaterial(ballMaterial);
+    ofDrawSphere(floorVec, 30);
     ofxOlaShaderLight::end();
     for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); ++it)
     {
@@ -236,6 +317,7 @@ void darknessFollowsScene::draw()
         }
 
         shd->LedFixture::draw();
+
     }
     ofDisableLighting();
     ofPopStyle();
@@ -323,6 +405,7 @@ void darknessFollowsScene::mouseMoved(int x, int y)
     {
 //        cam.enableMouseInput();
     }
+
 }
 
 void darknessFollowsScene::mousePressed(int x, int y, int button)
@@ -386,4 +469,37 @@ void darknessFollowsScene::mouseDragged(int x, int y, int button)
         }
     }
     mouseVec = ofVec3f(x,y,0);
+
+    ofVec3f mouseWithDepth(mouseVec);
+    mouseWithDepth.z = cam.worldToScreen(floor.getGlobalPosition()).z;
+    mouseWithDepth.x -= gui->getRect()->getHalfWidth();
+    ofVec3f mouseInCam(cam.screenToWorld(mouseWithDepth));
+
+    float halfWidth = floor.getWidth()/2.0;
+    float halfHeight = floor.getHeight()/2.0;
+
+    ofVec3f P1(floor.getGlobalPosition().x-halfWidth, floor.getGlobalPosition().y-halfHeight, floor.getGlobalPosition().z);
+    ofVec3f P2(floor.getGlobalPosition().x-halfWidth, floor.getGlobalPosition().y+halfHeight, floor.getGlobalPosition().z);
+    ofVec3f P3(floor.getGlobalPosition().x+halfWidth, floor.getGlobalPosition().y+halfHeight, floor.getGlobalPosition().z);
+    ofVec3f R1(cam.getGlobalPosition());
+    ofVec3f R2(mouseInCam);
+
+   // Returns in (fX, fY) the location on the plane (P1,P2,P3) of the intersection with the ray (R1, R2)
+   // First compute the axes
+   ofVec3f V1(P2 - P1);
+   ofVec3f V2(P3 - P1);
+   ofVec3f V3(V1.getCrossed(V2));
+
+   // Project ray points R1 and R2 onto the axes of the plane. (This is equivalent to a rotation.)
+   ofVec3f vRotRay1( V1.dot( R1-P1 ), V2.dot( R1-P1 ), V3.dot( R1-P1 ) );
+   ofVec3f vRotRay2( V1.dot( R2-P1 ), V2.dot( R2-P1 ), V3.dot( R2-P1 ) );
+   // Return now if ray will never intersect plane (they're parallel)
+   if (vRotRay1.z != vRotRay2.z) {
+        float fPercent = vRotRay1.z / (vRotRay2.z-vRotRay1.z);
+        ofVec3f rayVec(R1 + (R1-R2) * fPercent);
+        if(rayVec.distance(floorVec) < 30){
+            floorVec =  R1 + (R1-R2) * fPercent;
+        }
+   }
+
 }

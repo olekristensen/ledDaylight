@@ -28,6 +28,8 @@ void testApp::setup()
         s->setup();
     }
 
+    activeScene = scenes[0];
+
     setGUI();
 
 //    sourceCamera.connect();
@@ -52,15 +54,9 @@ void testApp::setGUI()
 //    gui->addLabel("Press 'h' to Hide GUIs", OFX_UI_FONT_SMALL);
     gui->setWidth(ofGetWidth()/3.);
     gui->setFont("GUI/DroidSans.ttf");
-    gui->setFontSize(OFX_UI_FONT_LARGE, 10);
+    gui->setFontSize(OFX_UI_FONT_LARGE, 9);
     gui->setFontSize(OFX_UI_FONT_MEDIUM, 8);
     gui->setFontSize(OFX_UI_FONT_SMALL, 6);
-    gui->addLabel("");
-    gui->addLabel("Scene", OFX_UI_FONT_LARGE);
-    gui->addSpacer();
-    gui->addLabel("");
-    gui->addRadio("sceneName", sceneNames)->activateToggle(sceneNames.back());
-    gui->addSpacer();
     gui->addLabel("");
 
     for(std::vector<ledScene*>::iterator it = scenes.begin(); it != scenes.end(); ++it)
@@ -69,9 +65,9 @@ void testApp::setGUI()
         s->setGUI(gui);
     }
 
-    gui->addLabel("Presets", OFX_UI_FONT_LARGE);
     gui->addSpacer();
-    gui->addLabel("Keep settings as xml files", OFX_UI_FONT_SMALL);
+    gui->addLabel("");
+    gui->addLabel("Presets", OFX_UI_FONT_LARGE);
     gui->addSpacer();
     gui->addLabelButton("Load", bLoadSettings, gui->getRect()->getWidth()-8, 20)->setColorBack(ofColor(48,48,48));
     gui->addLabelButton("Save", bSaveSettings, gui->getRect()->getWidth()-8, 20)->setColorBack(ofColor(48,48,48));
@@ -133,7 +129,7 @@ void testApp::update()
 
 //    buffer.Blackout();
 
-    ofxUIRadio * rSceneNames = (ofxUIRadio*) gui->getWidget("sceneName");
+/*    ofxUIRadio * rSceneNames = (ofxUIRadio*) gui->getWidget("sceneName");
     string activeSceneName = rSceneNames->getActive()->getName();
 
     for(std::vector<ledScene*>::iterator it = scenes.begin(); it != scenes.end(); ++it)
@@ -152,7 +148,7 @@ void testApp::update()
             }
         }
     }
-
+*/
     activeScene->update();
 
 /*    if (!ola_client.SendDmx(0, buffer))

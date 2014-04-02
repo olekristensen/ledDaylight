@@ -67,6 +67,33 @@ public:
 
 };
 
+class ChromaWhiteBall : public LedFixture
+{
+public:
+
+    void setup(unsigned int startAddress = 0)
+    {
+        this->LedFixture::setup();
+        DMXstartAddress = startAddress;
+        if(startAddress > 0)
+        {
+            DMXchannels.push_back(new DMXchannel(startAddress, DMXchannel::DMX_CHANNEL_COLOR_TEMPERATURE, false));
+            DMXchannels.push_back(new DMXchannel(startAddress+1, DMXchannel::DMX_CHANNEL_BRIGHTNESS, false));
+        }
+        setAttenuation(1./.1);
+        temperatureRangeColdKelvin = 6500;
+        temperatureRangeWarmKelvin = 2700;
+        setNormalisedBrightness(1.0);
+        addressInterval = 2;
+    };
+
+    void drawForm()
+    {
+        ofLight::draw();
+    };
+
+};
+
 class LupoLed : public LedFixture
 {
 public:
