@@ -10,7 +10,7 @@ void darknessFollowsScene::setup()
 
     ofTrueTypeFont::setGlobalDpi(72);
 
-    font.loadFont("GUI/DroidSans.ttf", 18, true, true);
+    font.loadFont("GUI/DroidSans.ttf", 14, true, true);
 
     name = "Darkness Follows";
 

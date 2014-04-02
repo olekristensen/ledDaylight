@@ -105,11 +105,11 @@ public:
         if(startAddress > 0)
         {
             DMXchannels.push_back(new DMXchannel(startAddress, DMXchannel::DMX_CHANNEL_BRIGHTNESS, false));
-            DMXchannels.push_back(new DMXchannel(startAddress+1, DMXchannel::DMX_CHANNEL_COLOR_TEMPERATURE, false));
+            DMXchannels.push_back(new DMXchannel(startAddress+1, DMXchannel::DMX_CHANNEL_COLOR_TEMPERATURE, false,true));
         }
         setAttenuation(1./.1);
-        temperatureRangeColdKelvin = 2700;
-        temperatureRangeWarmKelvin = 6500;
+        temperatureRangeColdKelvin = 6500;
+        temperatureRangeWarmKelvin = 2700;
         setNormalisedBrightness(1.0);
         addressInterval = 2;
     };
