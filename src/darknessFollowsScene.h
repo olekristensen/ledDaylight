@@ -48,6 +48,12 @@ public:
     float brightnessRangeFromPos;
     float brightnessRangeToPos;
 
+    float kelvinWarmRangeDir;
+    float kelvinColdRangeDir;
+
+    float brightnessRangeFromDir;
+    float brightnessRangeToDir;
+
     float posSize;
 
     ofEasyCam cam;
@@ -61,8 +67,10 @@ public:
     float colorPickerRadius;
     int millisLastClick;
 
+    bool wallsOrCorners;
+
     ofVec3f mouseVec;
-    ofVec3f floorVec;
+    ofNode  floorPos;
 
 protected:
 private:

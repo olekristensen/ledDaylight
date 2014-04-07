@@ -1,4 +1,5 @@
 #include "darknessFollowsScene.h"
+#include <math.h>       /* atan2 */
 
 darknessFollowsScene::darknessFollowsScene()
 {
@@ -37,9 +38,18 @@ void darknessFollowsScene::setup()
     kelvinColdRangePos = kelvinColdRange;
     kelvinWarmRangePos = kelvinWarmRange;
 
+    brightnessRangeFromDir = brightnessRangeFrom;
+    brightnessRangeToDir = brightnessRangeTo;
+
+    kelvinColdRangeDir = kelvinColdRange;
+    kelvinWarmRangeDir = kelvinWarmRange;
+
     posSize = 0.0;
+    floorPos.setOrientation(ofQuaternion(-90,ofVec3f(0,0,1)));
 
     manualBalance = 1.0;
+
+    wallsOrCorners = false;
 
     floor.set(285,300,100,100);
 
@@ -85,29 +95,29 @@ void darknessFollowsScene::setup()
     LupoLed* softboxFront = new LupoLed();
     softboxFront->setup(201);
     softboxFront->setParent(floor);
-    softboxFront->setPosition(0.0, -floor.getHeight()/2.0, 290/lightZposCheat);
-    softboxFront->setOrientation(ofQuaternion(0,ofVec3f(0,0,1)));
+    softboxFront->setPosition(-floor.getWidth()/2.0, -floor.getHeight()/2.0, 290/lightZposCheat);
+    softboxFront->setOrientation(ofQuaternion(-45,ofVec3f(0,0,1)));
     lights.push_back(softboxFront);
 
     LupoLed* softboxLeft = new LupoLed();
     softboxLeft->setup(203);
     softboxLeft->setParent(floor);
-    softboxLeft->setPosition(-floor.getWidth()/2.0, 0.0, 290/lightZposCheat);
+    softboxLeft->setPosition(floor.getWidth()/2.0, -floor.getHeight()/2.0, 290/lightZposCheat);
     softboxLeft->setOrientation(ofQuaternion(45,ofVec3f(0,0,1)));
     lights.push_back(softboxLeft);
 
     LupoLed* softboxBack = new LupoLed();
     softboxBack->setup(205);
     softboxBack->setParent(floor);
-    softboxBack->setPosition(0.0, floor.getHeight()/2.0, 290/lightZposCheat);
-    softboxBack->setOrientation(ofQuaternion(180,ofVec3f(0,0,1)));
+    softboxBack->setPosition(floor.getWidth()/2.0, floor.getHeight()/2.0, 290/lightZposCheat);
+    softboxBack->setOrientation(ofQuaternion(135,ofVec3f(0,0,1)));
     lights.push_back(softboxBack);
 
     LupoLed* softboxRight = new LupoLed();
     softboxRight->setup(207);
     softboxRight->setParent(floor);
-    softboxRight->setPosition(floor.getWidth()/2.0, 0.0, 290/lightZposCheat);
-    softboxRight->setOrientation(ofQuaternion(270,ofVec3f(0,0,1)));
+    softboxRight->setPosition(-floor.getWidth()/2.0,floor.getHeight()/2.0, 290/lightZposCheat);
+    softboxRight->setOrientation(ofQuaternion(225,ofVec3f(0,0,1)));
     lights.push_back(softboxRight);
 
     /*
@@ -141,67 +151,67 @@ void darknessFollowsScene::setGUI(ofxUISuperCanvas* gui)
     guiWidgets.push_back(gui->addLabel("Temperature", OFX_UI_FONT_LARGE));
     guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Range", OFX_UI_FONT_SMALL));
-    ofxUIRangeSlider * rTemp = gui->addRangeSlider("tRange", kelvinWarm, kelvinCold, &kelvinWarmRange, &kelvinColdRange, gui->getRect()->getWidth()-8, 20);
+    ofxUIRangeSlider * rTemp = gui->addRangeSlider("tRange", kelvinWarm, kelvinCold, &kelvinWarmRange, &kelvinColdRange, gui->getRect()->getWidth()-8, 15);
     rTemp->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(rTemp);
-    guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Speed", OFX_UI_FONT_SMALL));
-    ofxUISlider * sTempSpeed = gui->addSlider("tSpeed",0,1,&temperatureSpeed, gui->getRect()->getWidth()-8, 20);
+    ofxUISlider * sTempSpeed = gui->addSlider("tSpeed",0,1,&temperatureSpeed, gui->getRect()->getWidth()-8, 15);
     sTempSpeed->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(sTempSpeed);
-    guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Spread", OFX_UI_FONT_SMALL));
-    ofxUISlider * sTempSpread = gui->addSlider("tSpread",0,0.33,&temperatureSpread, gui->getRect()->getWidth()-8, 20);
+    ofxUISlider * sTempSpread = gui->addSlider("tSpread",0,0.33,&temperatureSpread, gui->getRect()->getWidth()-8, 15);
     sTempSpread->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(sTempSpread);
     guiWidgets.push_back(gui->addSpacer());
-    guiWidgets.push_back(gui->addLabel(""));
     guiWidgets.push_back(gui->addLabel("Brightness", OFX_UI_FONT_LARGE));
     guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Range", OFX_UI_FONT_SMALL));
-    ofxUIRangeSlider * rBrightness = gui->addRangeSlider("bRange", 0, 1, &brightnessRangeFrom, &brightnessRangeTo, gui->getRect()->getWidth()-8, 20);
+    ofxUIRangeSlider * rBrightness = gui->addRangeSlider("bRange", 0, 1, &brightnessRangeFrom, &brightnessRangeTo, gui->getRect()->getWidth()-8, 15);
     rBrightness->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(rBrightness);
-    guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Speed", OFX_UI_FONT_SMALL));
-    ofxUISlider * sBrightnessSpeed = gui->addSlider("bSpeed",0,1,&brightnessSpeed, gui->getRect()->getWidth()-8, 20);
+    ofxUISlider * sBrightnessSpeed = gui->addSlider("bSpeed",0,1,&brightnessSpeed, gui->getRect()->getWidth()-8, 15);
     sBrightnessSpeed->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(sBrightnessSpeed);
-    guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Spread", OFX_UI_FONT_SMALL));
-    ofxUISlider * sBrightnessSpread = gui->addSlider("bSpread",0,0.33,&brightnessSpread, gui->getRect()->getWidth()-8, 20);
+    ofxUISlider * sBrightnessSpread = gui->addSlider("bSpread",0,0.33,&brightnessSpread, gui->getRect()->getWidth()-8, 15);
     sBrightnessSpread->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(sBrightnessSpread);
     guiWidgets.push_back(gui->addSpacer());
-    guiWidgets.push_back(gui->addLabel(""));
     guiWidgets.push_back(gui->addLabel("Manual", OFX_UI_FONT_LARGE));
     guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Balance", OFX_UI_FONT_SMALL));
-    ofxUISlider * sManualBalance = gui->addSlider("mBalance",0.0,1.0,&manualBalance, gui->getRect()->getWidth()-8, 20);
+    ofxUISlider * sManualBalance = gui->addSlider("mBalance",0.0,1.0,&manualBalance, gui->getRect()->getWidth()-8, 15);
     sManualBalance->setColorBack(ofColor(48,48,48));
     sManualBalance->setColorFillHighlight(ofColor(255,0,0));
     sManualBalance->setColorOutlineHighlight(ofColor(255,0,0));
     guiWidgets.push_back(sManualBalance);
     guiWidgets.push_back(gui->addSpacer());
-    guiWidgets.push_back(gui->addLabel(""));
     guiWidgets.push_back(gui->addLabel("Position", OFX_UI_FONT_LARGE));
     guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Temperature", OFX_UI_FONT_SMALL));
-    ofxUIRangeSlider * rTempPos = gui->addRangeSlider("tRangePos", kelvinWarm, kelvinCold, &kelvinWarmRangePos, &kelvinColdRangePos, gui->getRect()->getWidth()-8, 20);
+    ofxUIRangeSlider * rTempPos = gui->addRangeSlider("tRangePos", kelvinWarm, kelvinCold, &kelvinWarmRangePos, &kelvinColdRangePos, gui->getRect()->getWidth()-8, 15);
     rTempPos->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(rTempPos);
-    guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Brightness", OFX_UI_FONT_SMALL));
-    ofxUIRangeSlider * rBrightnessPos = gui->addRangeSlider("bRangePos", 0, 1, &brightnessRangeFromPos, &brightnessRangeToPos, gui->getRect()->getWidth()-8, 20);
+    ofxUIRangeSlider * rBrightnessPos = gui->addRangeSlider("bRangePos", 0, 1, &brightnessRangeFromPos, &brightnessRangeToPos, gui->getRect()->getWidth()-8, 15);
     rBrightnessPos->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(rBrightnessPos);
-    guiWidgets.push_back(gui->addSpacer());
     guiWidgets.push_back(gui->addLabel("Size", OFX_UI_FONT_SMALL));
-    ofxUISlider * sPosSize = gui->addSlider("pSize",0.0,1.0,&posSize, gui->getRect()->getWidth()-8, 20);
+    ofxUISlider * sPosSize = gui->addSlider("pSize",0.0,1.0,&posSize, gui->getRect()->getWidth()-8, 15);
     sPosSize->setColorBack(ofColor(48,48,48));
-//    sPosSize->setColorFillHighlight(ofColor(255,0,0));
-//    sPosSize->setColorOutlineHighlight(ofColor(255,0,0));
     guiWidgets.push_back(sPosSize);
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel("Direction", OFX_UI_FONT_LARGE));
+    guiWidgets.push_back(gui->addSpacer());
+    guiWidgets.push_back(gui->addLabel("Temperature", OFX_UI_FONT_SMALL));
+    ofxUIRangeSlider * rTempDir = gui->addRangeSlider("tRangeDir", kelvinWarm, kelvinCold, &kelvinWarmRangeDir, &kelvinColdRangeDir, gui->getRect()->getWidth()-8, 15);
+    rTempPos->setColorBack(ofColor(48,48,48));
+    guiWidgets.push_back(rTempDir);
+    guiWidgets.push_back(gui->addLabel("Brightness", OFX_UI_FONT_SMALL));
+    ofxUIRangeSlider * rBrightnessDir = gui->addRangeSlider("bRangeDir", 0, 1, &brightnessRangeFromDir, &brightnessRangeToDir, gui->getRect()->getWidth()-8, 15);
+    rBrightnessPos->setColorBack(ofColor(48,48,48));
+    guiWidgets.push_back(rBrightnessDir);
 }
 
 void darknessFollowsScene::update()
@@ -215,8 +225,8 @@ void darknessFollowsScene::update()
 
         ofVec3f vecOnFloor(shd->getGlobalPosition().x,shd->getGlobalPosition().y,floor.getGlobalPosition().z);
 
-        float distToFloorVec = vecOnFloor.distance(floorVec);
-        float distToFloorVecNormalised = distToFloorVec/floor.getWidth();
+        float distToFloorPos = vecOnFloor.distance(floorPos.getGlobalPosition());
+        float distToFloorPosNormalised = distToFloorPos/floor.getWidth();
 
         float bRangeFrom = brightnessRangeFrom;
         float bRangeTo = brightnessRangeTo;
@@ -224,10 +234,10 @@ void darknessFollowsScene::update()
         float tRangeWarm = kelvinWarmRange;
         float tRangeCold = kelvinColdRange;
 
-        if(distToFloorVecNormalised < posSize)
+        if(distToFloorPosNormalised < posSize)
         {
 
-            float posWeighing = ofClamp(ofMap(distToFloorVecNormalised, posSize/2.0, posSize, 1.0, 0.0) ,0.0,1.0);
+            float posWeighing = ofClamp(ofMap(distToFloorPosNormalised, posSize/2.0, posSize, 1.0, 0.0) ,0.0,1.0);
 
             bRangeFrom *= (1.0-posWeighing);
             bRangeFrom += brightnessRangeFromPos*posWeighing;
@@ -240,6 +250,42 @@ void darknessFollowsScene::update()
 
             tRangeCold *= (1.0-posWeighing);
             tRangeCold += kelvinColdRangePos*posWeighing;
+        }
+        if(shd->directional)
+        {
+
+            ofVec3f dirVecLight(0,1,0);
+            ofVec3f dirVecPos(0,1,0);
+            dirVecLight = dirVecLight * shd->getGlobalOrientation();
+            dirVecPos = dirVecPos * floorPos.getGlobalOrientation();
+
+            float angleA = atan2(dirVecLight.x, dirVecLight.y) * 180 / PI;
+            float angleB = atan2(dirVecPos.x, dirVecPos.y) * 180 / PI;
+
+            float angleDiff;
+
+            if (angleA < 0){
+                angleDiff = angleB - angleA;
+            } else {
+                angleDiff = angleA - angleB;
+            }
+
+            angleDiff = fmodf((angleDiff + 180.0), 360.0) - 180.0;
+
+            float dirWeighing = ofMap(fabs(angleDiff),0.0,180.0,0.0,1.0);
+
+            bRangeFrom *= (1.0-dirWeighing);
+            bRangeFrom += brightnessRangeFromDir*dirWeighing;
+
+            bRangeTo *= (1.0-dirWeighing);
+            bRangeTo += brightnessRangeToDir*dirWeighing;
+
+            tRangeWarm *= (1.0-dirWeighing);
+            tRangeWarm += kelvinWarmRangeDir*dirWeighing;
+
+            tRangeCold *= (1.0-dirWeighing);
+            tRangeCold += kelvinColdRangeDir*dirWeighing;
+
         }
 
         float tempNoise = ofNoise(shd->getPosition().x*temperatureSpreadCubic, shd->getPosition().y*temperatureSpreadCubic, temperatureTime);
@@ -261,6 +307,9 @@ void darknessFollowsScene::update()
             shd->setNormalisedBrightness(brightness);
         }
     }
+
+    cout << endl;
+
     ofxOlaShaderLight::update();
 
     float now = ofGetElapsedTimef() + timeOffset;
@@ -280,14 +329,23 @@ void darknessFollowsScene::draw()
     ofxOlaShaderLight::setMaterial(white);
     floor.draw();
     ofxOlaShaderLight::end();
+    floorPos.transformGL();
+    ofSetColor(255,255,0,127);
+    ofDrawArrow(ofVec3f(0,0,0), ofVec3f(0,50,0), 20);
+    ofDrawAxis(60);
+    ofDisableDepthTest();
+    ofSetColor(255,255,0,32);
+    ofEllipse(0,0,160,160);
+    ofEnableDepthTest();
+    floorPos.restoreTransformGL();
     ofxOlaShaderLight::begin();
     ofxOlaShaderLight::setMaterial(ballMaterial);
-    ofDrawSphere(floorVec, 30);
+    ofDrawSphere(floorPos.getGlobalPosition(), 30);
     ofxOlaShaderLight::end();
     for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); ++it)
     {
         LedFixture * shd = *(it);
-        if(shd->selected || shd->manual)
+        if(shd->selected || shd->manual || shd->directional)
         {
             ofPushStyle();
             ofEnableDepthTest();
@@ -301,9 +359,17 @@ void darknessFollowsScene::draw()
             {
                 ofSetColor(255,0,0, 255);
             }
+            if(shd->directional)
+            {
+                ofSetColor(0,0,255, 255);
+            }
             if(shd->manual && shd->selected)
             {
                 ofSetColor(255,255,0, 255);
+            }
+            if(shd->directional && shd->selected)
+            {
+                ofSetColor(0,255,255, 255);
             }
             ofVec3f v = shd->getGlobalPosition();
             v.z *= lightZposCheat;
@@ -337,7 +403,7 @@ void darknessFollowsScene::draw()
         ofSetColor(64, 64, 64,127);
         font.drawString(s,v.x-(font.stringWidth(s)/2.0),v.y+(font.stringHeight(s)/2.0));
 
-        if(shd->selected)
+        if(shd->selected && shd->manual)
         {
             ofFloatColor fromTemp(DMXfixture::temperatureToColor(shd->temperatureRangeWarmKelvin));
             ofFloatColor toTemp(DMXfixture::temperatureToColor(shd->temperatureRangeColdKelvin));
@@ -437,13 +503,29 @@ void darknessFollowsScene::mouseReleased(int x, int y, int button)
         v += ofVec3f(gui->getRect()->getWidth()/2.,0,0);
         if(shd->selected)
         {
-            if(shd->manual && ofGetElapsedTimeMillis() - millisLastClick < 500 )
+            if(button == 0)
             {
-                shd->manual = false;
+                if(shd->manual && ofGetElapsedTimeMillis() - millisLastClick < 500 )
+                {
+                    shd->manual = false;
+                }
+                else
+                {
+                    shd->manual = true;
+                    shd->directional = false;
+                }
             }
-            else
+            if(button == 2)
             {
-                shd->manual = true;
+                if(shd->directional && ofGetElapsedTimeMillis() - millisLastClick < 500 )
+                {
+                    shd->directional = false;
+                }
+                else
+                {
+                    shd->directional = true;
+                    shd->manual = false;
+                }
             }
         }
     }
@@ -500,9 +582,21 @@ void darknessFollowsScene::mouseDragged(int x, int y, int button)
     {
         float fPercent = vRotRay1.z / (vRotRay2.z-vRotRay1.z);
         ofVec3f rayVec(R1 + (R1-R2) * fPercent);
-        if(rayVec.distance(floorVec) < 30)
+        if(rayVec.distance(floorPos.getGlobalPosition()) < 20)
         {
-            floorVec =  R1 + (R1-R2) * fPercent;
+            floorPos.setGlobalPosition(rayVec);
+
+        }
+        else if(rayVec.distance(floorPos.getGlobalPosition()) < 80)
+        {
+            ofNode n(floorPos);
+            n.lookAt(rayVec, ofVec3f(0,0,1));
+            n.tilt(-90);
+
+            ofQuaternion q = floorPos.getGlobalOrientation();
+            q.slerp(0.5, q, n.getGlobalOrientation());
+            floorPos.setGlobalOrientation(q);
+//            floorPos.setGlobalPosition(floorPos.lerp rayVec);
         }
     }
 
@@ -521,6 +615,7 @@ void darknessFollowsScene::saveSettings(ofFile f)
         settings.pushTag("light", i++);
         settings.addValue("DMXstartAddress", l->DMXstartAddress);
         settings.addValue("manual", l->manual);
+        settings.addValue("directional", l->directional);
         settings.addValue("manualBrightness", l->manualBrightness);
         settings.addValue("manualTemperature", l->manualTemperature);
         settings.popTag(); // light
@@ -541,8 +636,10 @@ void darknessFollowsScene::loadSettings(ofFile f)
         for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); ++it)
         {
             LedFixture * l = *(it);
-            if(l->DMXstartAddress == settings.getValue("DMXstartAddress",0)){
+            if(l->DMXstartAddress == settings.getValue("DMXstartAddress",0))
+            {
                 l->manual = settings.getValue("manual",0);
+                l->directional = settings.getValue("directional",0);
                 l->manualBrightness = settings.getValue("manualBrightness",0);
                 l->manualTemperature = settings.getValue("manualTemperature",0);
             }

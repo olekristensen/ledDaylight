@@ -14,6 +14,7 @@ public:
     {
         selected = false;
         manual = false;
+        directional = false;
         manualBrightness = 1.0;
         manualTemperature = 6500;
     };
@@ -33,6 +34,7 @@ public:
 
     bool selected;
     bool manual;
+    bool directional;
     float manualBrightness;
     int manualTemperature;
     int addressInterval = 1;
@@ -116,9 +118,18 @@ public:
 
     void drawForm()
     {
-        ofQuaternion rot = getGlobalOrientation();
-        ofRotate(rot.w(),rot.x(),rot.y(),rot.z());
-        ofDrawBox(ofLight::getPosition(), 35, 8, 20);
+        ofPushMatrix();
+        transformGL();
+        ofDrawBox(ofVec3f(0,0,0), 35, 8, 20);
+        ofPushStyle();
+        if(ofGetStyle().color == ofLight::getDiffuseColor()){
+            ofSetColor(0,255);
+        }
+        ofDrawBox(ofVec3f(0,-4,0), 33, 5, 18);
+        ofDrawAxis(80);
+        ofPopStyle();
+        restoreTransformGL();
+        ofPopMatrix();
     };
 
 };

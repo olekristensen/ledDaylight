@@ -3,15 +3,15 @@
         <DMXstartAddress>1</DMXstartAddress>
         <manual>0</manual>
         <directional>0</directional>
-        <manualBrightness>0.329618514</manualBrightness>
-        <manualTemperature>5743</manualTemperature>
+        <manualBrightness>1.000000000</manualBrightness>
+        <manualTemperature>6500</manualTemperature>
     </light>
     <light>
         <DMXstartAddress>6</DMXstartAddress>
         <manual>0</manual>
         <directional>0</directional>
-        <manualBrightness>1.000000000</manualBrightness>
-        <manualTemperature>6500</manualTemperature>
+        <manualBrightness>0.331494927</manualBrightness>
+        <manualTemperature>4826</manualTemperature>
     </light>
     <light>
         <DMXstartAddress>11</DMXstartAddress>
@@ -31,15 +31,15 @@
         <DMXstartAddress>21</DMXstartAddress>
         <manual>0</manual>
         <directional>0</directional>
-        <manualBrightness>1.000000000</manualBrightness>
-        <manualTemperature>6500</manualTemperature>
+        <manualBrightness>0.896585345</manualBrightness>
+        <manualTemperature>5192</manualTemperature>
     </light>
     <light>
         <DMXstartAddress>26</DMXstartAddress>
         <manual>0</manual>
         <directional>0</directional>
-        <manualBrightness>1.000000000</manualBrightness>
-        <manualTemperature>6500</manualTemperature>
+        <manualBrightness>0.280822158</manualBrightness>
+        <manualTemperature>5615</manualTemperature>
     </light>
     <light>
         <DMXstartAddress>31</DMXstartAddress>
@@ -52,22 +52,22 @@
         <DMXstartAddress>36</DMXstartAddress>
         <manual>0</manual>
         <directional>0</directional>
-        <manualBrightness>1.000000000</manualBrightness>
-        <manualTemperature>6500</manualTemperature>
+        <manualBrightness>0.105022222</manualBrightness>
+        <manualTemperature>3944</manualTemperature>
     </light>
     <light>
         <DMXstartAddress>41</DMXstartAddress>
         <manual>0</manual>
         <directional>0</directional>
-        <manualBrightness>1.000000000</manualBrightness>
-        <manualTemperature>6500</manualTemperature>
+        <manualBrightness>0.383253276</manualBrightness>
+        <manualTemperature>3867</manualTemperature>
     </light>
     <light>
         <DMXstartAddress>46</DMXstartAddress>
         <manual>0</manual>
         <directional>0</directional>
-        <manualBrightness>1.000000000</manualBrightness>
-        <manualTemperature>6500</manualTemperature>
+        <manualBrightness>0.216239482</manualBrightness>
+        <manualTemperature>3345</manualTemperature>
     </light>
     <light>
         <DMXstartAddress>51</DMXstartAddress>
@@ -87,28 +87,28 @@
         <DMXstartAddress>201</DMXstartAddress>
         <manual>0</manual>
         <directional>1</directional>
-        <manualBrightness>0.519019842</manualBrightness>
-        <manualTemperature>5937</manualTemperature>
+        <manualBrightness>0.428556144</manualBrightness>
+        <manualTemperature>3309</manualTemperature>
     </light>
     <light>
         <DMXstartAddress>203</DMXstartAddress>
         <manual>0</manual>
         <directional>1</directional>
-        <manualBrightness>0.079661041</manualBrightness>
-        <manualTemperature>3507</manualTemperature>
+        <manualBrightness>0.048775304</manualBrightness>
+        <manualTemperature>4070</manualTemperature>
     </light>
     <light>
         <DMXstartAddress>205</DMXstartAddress>
         <manual>0</manual>
         <directional>1</directional>
-        <manualBrightness>0.787087739</manualBrightness>
-        <manualTemperature>4021</manualTemperature>
+        <manualBrightness>0.675091505</manualBrightness>
+        <manualTemperature>4606</manualTemperature>
     </light>
     <light>
         <DMXstartAddress>207</DMXstartAddress>
         <manual>0</manual>
         <directional>1</directional>
-        <manualBrightness>0.799215436</manualBrightness>
-        <manualTemperature>3311</manualTemperature>
+        <manualBrightness>0.862554789</manualBrightness>
+        <manualTemperature>2880</manualTemperature>
     </light>
 </lights>
