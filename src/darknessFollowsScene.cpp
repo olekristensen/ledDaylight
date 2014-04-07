@@ -216,6 +216,13 @@ void darknessFollowsScene::setGUI(ofxUISuperCanvas* gui)
 
 void darknessFollowsScene::update()
 {
+    if(lerpFloorPosToDest){
+        ofQuaternion q(floorDest.getGlobalOrientation());
+        q.slerp(0.2, floorPos.getGlobalOrientation(), q);
+        floorPos.setOrientation(q);
+    }
+
+
     double temperatureSpreadCubic = powf(temperatureSpread, 3);
     double brightnessSpreadCubic = powf(brightnessSpread, 3);
 
@@ -331,8 +338,8 @@ void darknessFollowsScene::draw()
     ofxOlaShaderLight::end();
     floorPos.transformGL();
     ofSetColor(255,255,0,127);
-    ofDrawArrow(ofVec3f(0,0,0), ofVec3f(0,50,0), 20);
-    ofDrawAxis(60);
+    ofDrawArrow(ofVec3f(0,0,0), ofVec3f(0,60,0), 10);
+    //ofDrawAxis(60);
     ofDisableDepthTest();
     ofSetColor(255,255,0,32);
     ofEllipse(0,0,160,160);
@@ -494,6 +501,8 @@ void darknessFollowsScene::mousePressed(int x, int y, int button)
 void darknessFollowsScene::mouseReleased(int x, int y, int button)
 {
 
+    lerpFloorPosToDest = false;
+
     mouseVec = ofVec3f(x,y,0);
 
     for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); ++it)
@@ -582,7 +591,7 @@ void darknessFollowsScene::mouseDragged(int x, int y, int button)
     {
         float fPercent = vRotRay1.z / (vRotRay2.z-vRotRay1.z);
         ofVec3f rayVec(R1 + (R1-R2) * fPercent);
-        if(rayVec.distance(floorPos.getGlobalPosition()) < 20)
+        if(rayVec.distance(floorPos.getGlobalPosition()) < 30)
         {
             floorPos.setGlobalPosition(rayVec);
 
@@ -592,11 +601,9 @@ void darknessFollowsScene::mouseDragged(int x, int y, int button)
             ofNode n(floorPos);
             n.lookAt(rayVec, ofVec3f(0,0,1));
             n.tilt(-90);
-
-            ofQuaternion q = floorPos.getGlobalOrientation();
-            q.slerp(0.5, q, n.getGlobalOrientation());
-            floorPos.setGlobalOrientation(q);
-//            floorPos.setGlobalPosition(floorPos.lerp rayVec);
+            lerpFloorPosToDest = true;
+            floorDest = n;
+//            floorPos.setGlobalPosition(floorPos.lerp(0.1, rayVec));
         }
     }
 

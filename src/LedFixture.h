@@ -126,7 +126,7 @@ public:
             ofSetColor(0,255);
         }
         ofDrawBox(ofVec3f(0,-4,0), 33, 5, 18);
-        ofDrawAxis(80);
+        //ofDrawAxis(80);
         ofPopStyle();
         restoreTransformGL();
         ofPopMatrix();

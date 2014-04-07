@@ -71,6 +71,9 @@ public:
 
     ofVec3f mouseVec;
     ofNode  floorPos;
+    ofNode  floorDest;
+
+    bool lerpFloorPosToDest;
 
 protected:
 private:
