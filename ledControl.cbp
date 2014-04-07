@@ -1174,12 +1174,6 @@
 		<Unit filename="src/pgCamera.h">
 			<Option virtualFolder="src/" />
 		</Unit>
-		<Unit filename="src/tesselationScene.cpp">
-			<Option virtualFolder="src/" />
-		</Unit>
-		<Unit filename="src/tesselationScene.h">
-			<Option virtualFolder="src/" />
-		</Unit>
 		<Unit filename="src/testApp.cpp">
 			<Option virtualFolder="src/" />
 		</Unit>

@@ -17,6 +17,12 @@ public:
     };
     void hideGUI();
     void showGUI();
+
+    ofxXmlSettings settings;
+
+    virtual void loadSettings(ofFile f) {};
+    virtual void saveSettings(ofFile f) {};
+
     virtual void mouseMoved(int x, int y ){};
     virtual void mouseDragged(int x, int y, int button){};
     virtual void mousePressed(int x, int y, int button){};

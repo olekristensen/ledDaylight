@@ -98,7 +98,16 @@ void testApp::guiEvent(ofxUIEventArgs &e)
                 {
                     file = ofFile(dr.filePath + ".xml");
                 }
+
                 gui->saveSettings(file.getAbsolutePath());
+
+                for(std::vector<ledScene*>::iterator it = scenes.begin(); it != scenes.end(); ++it)
+                {
+                    ledScene* s = *(it);
+                    ofFile sceneFile(ofToDataPath("settings_pr_scene/"+s->name+"." + file.getFileName()));
+                    s->saveSettings(sceneFile);
+                }
+
             }
         }
     }
@@ -116,6 +125,13 @@ void testApp::guiEvent(ofxUIEventArgs &e)
                 if(file.getExtension() == "xml")
                 {
                     gui->loadSettings(file.getAbsolutePath());
+
+                    for(std::vector<ledScene*>::iterator it = scenes.begin(); it != scenes.end(); ++it)
+                    {
+                        ledScene* s = *(it);
+                        ofFile sceneFile(ofToDataPath("settings_pr_scene/"+s->name+"." + file.getFileName()));
+                        s->loadSettings(sceneFile);
+                    }
                 }
             }
         }
@@ -129,35 +145,35 @@ void testApp::update()
 
 //    buffer.Blackout();
 
-/*    ofxUIRadio * rSceneNames = (ofxUIRadio*) gui->getWidget("sceneName");
-    string activeSceneName = rSceneNames->getActive()->getName();
+    /*    ofxUIRadio * rSceneNames = (ofxUIRadio*) gui->getWidget("sceneName");
+        string activeSceneName = rSceneNames->getActive()->getName();
 
-    for(std::vector<ledScene*>::iterator it = scenes.begin(); it != scenes.end(); ++it)
-    {
-        ledScene* s = *(it);
-        if(s->name == activeSceneName)
+        for(std::vector<ledScene*>::iterator it = scenes.begin(); it != scenes.end(); ++it)
         {
-            if(activeScene != s)
+            ledScene* s = *(it);
+            if(s->name == activeSceneName)
             {
-                if(activeScene)
+                if(activeScene != s)
                 {
-                    activeScene->hideGUI();
+                    if(activeScene)
+                    {
+                        activeScene->hideGUI();
+                    }
+                    activeScene = s;
+                    activeScene->showGUI();
                 }
-                activeScene = s;
-                activeScene->showGUI();
             }
         }
-    }
-*/
+    */
     activeScene->update();
 
-/*    if (!ola_client.SendDmx(0, buffer))
-    {
-        cout << "Send DMX failed" << endl;
-    }
+    /*    if (!ola_client.SendDmx(0, buffer))
+        {
+            cout << "Send DMX failed" << endl;
+        }
 
-    //  cameraController.update();
-*/
+        //  cameraController.update();
+    */
 }
 
 //--------------------------------------------------------------
@@ -167,13 +183,15 @@ void testApp::draw()
     ofEnableDepthTest();
     ofEnableSmoothing();
     float viewportWidth = (ofGetWidth()-gui->getRect()->getWidth());
-    ofPushMatrix(); {
-    ofViewport(gui->getRect()->getWidth(),0,viewportWidth,ofGetHeight());
+    ofPushMatrix();
+    {
+        ofViewport(gui->getRect()->getWidth(),0,viewportWidth,ofGetHeight());
 
         activeScene->draw();
 
-    ofViewport();
-    } ofPopMatrix();
+        ofViewport();
+    }
+    ofPopMatrix();
 
 //    cameraController.draw();
 }
@@ -196,7 +214,8 @@ void testApp::keyReleased(int key)
 //--------------------------------------------------------------
 void testApp::mouseMoved(int x, int y )
 {
-    if(activeScene){
+    if(activeScene)
+    {
         activeScene->mouseMoved( x,  y);
     }
 }
@@ -204,7 +223,8 @@ void testApp::mouseMoved(int x, int y )
 //--------------------------------------------------------------
 void testApp::mouseDragged(int x, int y, int button)
 {
-if(activeScene){
+    if(activeScene)
+    {
         activeScene->mouseDragged( x,  y,  button);
     }
 }
@@ -212,7 +232,8 @@ if(activeScene){
 //--------------------------------------------------------------
 void testApp::mousePressed(int x, int y, int button)
 {
-if(activeScene){
+    if(activeScene)
+    {
         activeScene->mousePressed( x,  y,  button);
     }
 }
@@ -220,7 +241,8 @@ if(activeScene){
 //--------------------------------------------------------------
 void testApp::mouseReleased(int x, int y, int button)
 {
-    if(activeScene){
+    if(activeScene)
+    {
         activeScene->mouseReleased( x,  y,  button);
     }
 }

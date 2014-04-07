@@ -29,3 +29,4 @@ void ledScene::showGUI()
     }
 //    gui->centerWidgetsOnCanvas(false, false);
 }
+

@@ -110,20 +110,21 @@ void darknessFollowsScene::setup()
     softboxRight->setOrientation(ofQuaternion(270,ofVec3f(0,0,1)));
     lights.push_back(softboxRight);
 
-    // Add balls
+    /*
+        // Add balls
 
-    ChromaWhiteBall * ballLeft = new ChromaWhiteBall();
-    ballLeft->setup(301);
-    ballLeft->setParent(floor);
-    ballLeft->setPosition(-floor.getWidth()/4.0, floor.getHeight()/5.0, 260/lightZposCheat);
-    lights.push_back(ballLeft);
+        ChromaWhiteBall * ballLeft = new ChromaWhiteBall();
+        ballLeft->setup(301);
+        ballLeft->setParent(floor);
+        ballLeft->setPosition(-floor.getWidth()/4.0, floor.getHeight()/5.0, 260/lightZposCheat);
+        lights.push_back(ballLeft);
 
-    ChromaWhiteBall * ballRight = new ChromaWhiteBall();
-    ballRight->setup(303);
-    ballRight->setParent(floor);
-    ballRight->setPosition(floor.getWidth()/4.0, floor.getHeight()/5.0, 260/lightZposCheat);
-    lights.push_back(ballRight);
-
+        ChromaWhiteBall * ballRight = new ChromaWhiteBall();
+        ballRight->setup(303);
+        ballRight->setParent(floor);
+        ballRight->setPosition(floor.getWidth()/4.0, floor.getHeight()/5.0, 260/lightZposCheat);
+        lights.push_back(ballRight);
+    */
 
     cam.setTranslationKey(' ');
     cam.setTarget(ofVec3f(0,0,140));
@@ -201,7 +202,7 @@ void darknessFollowsScene::setGUI(ofxUISuperCanvas* gui)
 //    sPosSize->setColorFillHighlight(ofColor(255,0,0));
 //    sPosSize->setColorOutlineHighlight(ofColor(255,0,0));
     guiWidgets.push_back(sPosSize);
-    }
+}
 
 void darknessFollowsScene::update()
 {
@@ -223,9 +224,10 @@ void darknessFollowsScene::update()
         float tRangeWarm = kelvinWarmRange;
         float tRangeCold = kelvinColdRange;
 
-        if(distToFloorVecNormalised < posSize){
+        if(distToFloorVecNormalised < posSize)
+        {
 
-                float posWeighing = ofClamp(ofMap(distToFloorVecNormalised, posSize/2.0, posSize, 1.0, 0.0) ,0.0,1.0);
+            float posWeighing = ofClamp(ofMap(distToFloorVecNormalised, posSize/2.0, posSize, 1.0, 0.0) ,0.0,1.0);
 
             bRangeFrom *= (1.0-posWeighing);
             bRangeFrom += brightnessRangeFromPos*posWeighing;
@@ -484,22 +486,69 @@ void darknessFollowsScene::mouseDragged(int x, int y, int button)
     ofVec3f R1(cam.getGlobalPosition());
     ofVec3f R2(mouseInCam);
 
-   // Returns in (fX, fY) the location on the plane (P1,P2,P3) of the intersection with the ray (R1, R2)
-   // First compute the axes
-   ofVec3f V1(P2 - P1);
-   ofVec3f V2(P3 - P1);
-   ofVec3f V3(V1.getCrossed(V2));
+    // Returns in (fX, fY) the location on the plane (P1,P2,P3) of the intersection with the ray (R1, R2)
+    // First compute the axes
+    ofVec3f V1(P2 - P1);
+    ofVec3f V2(P3 - P1);
+    ofVec3f V3(V1.getCrossed(V2));
 
-   // Project ray points R1 and R2 onto the axes of the plane. (This is equivalent to a rotation.)
-   ofVec3f vRotRay1( V1.dot( R1-P1 ), V2.dot( R1-P1 ), V3.dot( R1-P1 ) );
-   ofVec3f vRotRay2( V1.dot( R2-P1 ), V2.dot( R2-P1 ), V3.dot( R2-P1 ) );
-   // Return now if ray will never intersect plane (they're parallel)
-   if (vRotRay1.z != vRotRay2.z) {
+    // Project ray points R1 and R2 onto the axes of the plane. (This is equivalent to a rotation.)
+    ofVec3f vRotRay1( V1.dot( R1-P1 ), V2.dot( R1-P1 ), V3.dot( R1-P1 ) );
+    ofVec3f vRotRay2( V1.dot( R2-P1 ), V2.dot( R2-P1 ), V3.dot( R2-P1 ) );
+    // Return now if ray will never intersect plane (they're parallel)
+    if (vRotRay1.z != vRotRay2.z)
+    {
         float fPercent = vRotRay1.z / (vRotRay2.z-vRotRay1.z);
         ofVec3f rayVec(R1 + (R1-R2) * fPercent);
-        if(rayVec.distance(floorVec) < 30){
+        if(rayVec.distance(floorVec) < 30)
+        {
             floorVec =  R1 + (R1-R2) * fPercent;
         }
-   }
+    }
 
+}
+
+void darknessFollowsScene::saveSettings(ofFile f)
+{
+    settings.clear();
+    settings.addTag("lights");
+    settings.pushTag("lights");
+    int i = 0;
+    for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); ++it)
+    {
+        LedFixture * l = *(it);
+        settings.addTag("light");
+        settings.pushTag("light", i++);
+        settings.addValue("DMXstartAddress", l->DMXstartAddress);
+        settings.addValue("manual", l->manual);
+        settings.addValue("manualBrightness", l->manualBrightness);
+        settings.addValue("manualTemperature", l->manualTemperature);
+        settings.popTag(); // light
+    }
+    settings.popTag(); // lights
+    settings.saveFile(f.getAbsolutePath());
+}
+
+void darknessFollowsScene::loadSettings(ofFile f)
+{
+    settings.loadFile(f.getAbsolutePath());
+    settings.pushTag("lights");
+
+    int numberOfSavedLights = settings.getNumTags("light");
+    for(int i = 0; i < numberOfSavedLights; i++)
+    {
+        settings.pushTag("light", i);
+        for(vector<LedFixture*>::iterator it = lights.begin(); it != lights.end(); ++it)
+        {
+            LedFixture * l = *(it);
+            if(l->DMXstartAddress == settings.getValue("DMXstartAddress",0)){
+                l->manual = settings.getValue("manual",0);
+                l->manualBrightness = settings.getValue("manualBrightness",0);
+                l->manualTemperature = settings.getValue("manualTemperature",0);
+            }
+        }
+        settings.popTag(); // light
+    }
+
+    settings.popTag(); // lights
 }

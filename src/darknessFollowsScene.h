@@ -16,6 +16,9 @@ public:
     void mouseReleased(int x, int y, int button);
     void mouseDragged(int x, int y, int button);
 
+    void saveSettings(ofFile f);
+    void loadSettings(ofFile f);
+
     vector<LedFixture*> lights;
 
     ofPlanePrimitive floor;
