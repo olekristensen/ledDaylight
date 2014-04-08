@@ -104,7 +104,8 @@ void testApp::guiEvent(ofxUIEventArgs &e)
                 for(std::vector<ledScene*>::iterator it = scenes.begin(); it != scenes.end(); ++it)
                 {
                     ledScene* s = *(it);
-                    ofFile sceneFile(ofToDataPath("settings_pr_scene/"+s->name+"." + file.getFileName()));
+                    ofFile sceneFile(ofToDataPath("settings_pr_scene/")+s->name+"." + file.getFileName());
+		    cout << "attempting to save " << sceneFile.getAbsolutePath() << endl;
                     s->saveSettings(sceneFile);
                 }
 
@@ -129,8 +130,9 @@ void testApp::guiEvent(ofxUIEventArgs &e)
                     for(std::vector<ledScene*>::iterator it = scenes.begin(); it != scenes.end(); ++it)
                     {
                         ledScene* s = *(it);
-                        ofFile sceneFile(ofToDataPath("settings_pr_scene/"+s->name+"." + file.getFileName()));
-                        s->loadSettings(sceneFile);
+                        ofFile sceneFile(ofToDataPath("settings_pr_scene/")+s->name+"." + file.getFileName());
+                        cout << "attempting to load " << ofFile.getAbsolutePath() << endl;
+			s->loadSettings(sceneFile);
                     }
                 }
             }
