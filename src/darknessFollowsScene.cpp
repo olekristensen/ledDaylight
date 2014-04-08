@@ -53,7 +53,20 @@ void darknessFollowsScene::setup()
 
     floor.set(285,300,100,100);
 
+/**
+    float wallHeight = 250;
+
+    ofPlanePrimitive* leftWall = new ofPlanePrimitive();
+    leftWall->set(285,wallHeight,100,100);
+    leftWall->setParent(floor);
+    leftWall->setPosition(-floor.getWidth()/2.0, 0, wallHeight/2.0);
+    leftWall->setOrientation(ofQuaternion(-90,ofVec3f(0,1,0)));
+    walls.push_back(leftWall);
+**/
     white.diffuseColor = ofVec4f(255,255,255,255);
+    whiteTransparent.diffuseColor = ofVec4f(255,255,255,64);
+    whiteTransparent.specularColor = ofVec4f(255,255,255,0);
+    whiteTransparent.specularShininess = 0.0;
     ballMaterial.diffuseColor = ofVec4f(159,159,159,255);
     ballMaterial.specularColor = ofVec4f(255,255,255,255);
     ballMaterial.specularShininess = 0.33;
@@ -98,6 +111,7 @@ void darknessFollowsScene::setup()
     softboxFront->setPosition(-floor.getWidth()/2.0, -floor.getHeight()/2.0, 290/lightZposCheat);
     softboxFront->setOrientation(ofQuaternion(-45,ofVec3f(0,0,1)));
     lights.push_back(softboxFront);
+    wallAndCornerLights.push_back(softboxFront);
 
     LupoLed* softboxLeft = new LupoLed();
     softboxLeft->setup(203);
@@ -105,6 +119,7 @@ void darknessFollowsScene::setup()
     softboxLeft->setPosition(floor.getWidth()/2.0, -floor.getHeight()/2.0, 290/lightZposCheat);
     softboxLeft->setOrientation(ofQuaternion(45,ofVec3f(0,0,1)));
     lights.push_back(softboxLeft);
+    wallAndCornerLights.push_back(softboxLeft);
 
     LupoLed* softboxBack = new LupoLed();
     softboxBack->setup(205);
@@ -112,6 +127,7 @@ void darknessFollowsScene::setup()
     softboxBack->setPosition(floor.getWidth()/2.0, floor.getHeight()/2.0, 290/lightZposCheat);
     softboxBack->setOrientation(ofQuaternion(135,ofVec3f(0,0,1)));
     lights.push_back(softboxBack);
+    wallAndCornerLights.push_back(softboxBack);
 
     LupoLed* softboxRight = new LupoLed();
     softboxRight->setup(207);
@@ -119,6 +135,7 @@ void darknessFollowsScene::setup()
     softboxRight->setPosition(-floor.getWidth()/2.0,floor.getHeight()/2.0, 290/lightZposCheat);
     softboxRight->setOrientation(ofQuaternion(225,ofVec3f(0,0,1)));
     lights.push_back(softboxRight);
+    wallAndCornerLights.push_back(softboxRight);
 
     /*
         // Add balls
@@ -212,14 +229,41 @@ void darknessFollowsScene::setGUI(ofxUISuperCanvas* gui)
     ofxUIRangeSlider * rBrightnessDir = gui->addRangeSlider("bRangeDir", 0, 1, &brightnessRangeFromDir, &brightnessRangeToDir, gui->getRect()->getWidth()-8, 15);
     rBrightnessPos->setColorBack(ofColor(48,48,48));
     guiWidgets.push_back(rBrightnessDir);
+    ofxUILabelToggle * tWallsInsteadOfCorners = gui->addLabelToggle("Show Walls Instead of Corners", &bWallsInsteadOfCorners, gui->getRect()->getWidth()-8, 15);
+    tWallsInsteadOfCorners->setColorBack(ofColor(48,48,48));
+    guiWidgets.push_back(tWallsInsteadOfCorners);
 }
 
 void darknessFollowsScene::update()
 {
-    if(lerpFloorPosToDest){
+    if(lerpFloorPosToDest)
+    {
         ofQuaternion q(floorDest.getGlobalOrientation());
         q.slerp(0.2, floorPos.getGlobalOrientation(), q);
         floorPos.setOrientation(q);
+    }
+
+    if(bWallsInsteadOfCorners)
+    {
+        wallAndCornerLights[0]->setPosition(-floor.getWidth()/1.8, 0, 100/lightZposCheat);
+        wallAndCornerLights[0]->setOrientation(ofQuaternion(270,ofVec3f(0,0,1)));
+        wallAndCornerLights[1]->setPosition(0, -floor.getHeight()/1.8, 100/lightZposCheat);
+        wallAndCornerLights[1]->setOrientation(ofQuaternion(0,ofVec3f(0,0,1)));
+        wallAndCornerLights[2]->setPosition(floor.getWidth()/1.8, 0, 100/lightZposCheat);
+        wallAndCornerLights[2]->setOrientation(ofQuaternion(90,ofVec3f(0,0,1)));
+        wallAndCornerLights[3]->setPosition(0,floor.getHeight()/1.8, 100/lightZposCheat);
+        wallAndCornerLights[3]->setOrientation(ofQuaternion(180,ofVec3f(0,0,1)));
+    }
+    else
+    {
+        wallAndCornerLights[0]->setPosition(-floor.getWidth()/2.0, -floor.getHeight()/2.0, 290/lightZposCheat);
+        wallAndCornerLights[0]->setOrientation(ofQuaternion(-45,ofVec3f(0,0,1)));
+        wallAndCornerLights[1]->setPosition(floor.getWidth()/2.0, -floor.getHeight()/2.0, 290/lightZposCheat);
+        wallAndCornerLights[1]->setOrientation(ofQuaternion(45,ofVec3f(0,0,1)));
+        wallAndCornerLights[2]->setPosition(floor.getWidth()/2.0, floor.getHeight()/2.0, 290/lightZposCheat);
+        wallAndCornerLights[2]->setOrientation(ofQuaternion(135,ofVec3f(0,0,1)));
+        wallAndCornerLights[3]->setPosition(-floor.getWidth()/2.0,floor.getHeight()/2.0, 290/lightZposCheat);
+        wallAndCornerLights[3]->setOrientation(ofQuaternion(225,ofVec3f(0,0,1)));
     }
 
 
@@ -271,9 +315,12 @@ void darknessFollowsScene::update()
 
             float angleDiff;
 
-            if (angleA < 0){
+            if (angleA < 0)
+            {
                 angleDiff = angleB - angleA;
-            } else {
+            }
+            else
+            {
                 angleDiff = angleA - angleB;
             }
 
@@ -336,6 +383,14 @@ void darknessFollowsScene::draw()
     ofxOlaShaderLight::setMaterial(white);
     floor.draw();
     ofxOlaShaderLight::end();
+    /** no walls yet
+    ofxOlaShaderLight::begin();
+    ofxOlaShaderLight::setMaterial(whiteTransparent);
+    for(int i = 0;i < walls.size(); ++i ){
+        walls[i]->draw();
+    }
+    ofxOlaShaderLight::end();
+    **/
     floorPos.transformGL();
     ofSetColor(255,255,0,127);
     ofDrawArrow(ofVec3f(0,0,0), ofVec3f(0,60,0), 10);

@@ -20,9 +20,12 @@ public:
     void loadSettings(ofFile f);
 
     vector<LedFixture*> lights;
+    vector<LedFixture*> wallAndCornerLights;
 
     ofPlanePrimitive floor;
+    vector<ofPlanePrimitive*> walls;
     ofxOlaShaderLight::Material white;
+    ofxOlaShaderLight::Material whiteTransparent;
     ofxOlaShaderLight::Material ballMaterial;
 
     unsigned int kelvinCold;
@@ -74,6 +77,8 @@ public:
     ofNode  floorDest;
 
     bool lerpFloorPosToDest;
+
+    bool bWallsInsteadOfCorners;
 
 protected:
 private:
