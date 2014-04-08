@@ -701,7 +701,8 @@ void darknessFollowsScene::loadSettings(ofFile f)
             {
                 l->manual = settings.getValue("manual",0);
                 l->directional = settings.getValue("directional",0);
-                l->manualBrightness = settings.getValue("manualBrightness",0);
+                l->manualBrightness = settings.getValue("manualBrightness",0.0);
+		cout << l->manualBrightness << " from " << settings.getValue("manualBrightness", 0.0) << endl;
                 l->manualTemperature = settings.getValue("manualTemperature",0);
             }
         }
