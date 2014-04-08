@@ -8,34 +8,34 @@
 <Widget>
     <Kind>6</Kind>
     <Name>tRange</Name>
-    <HighValue>6500.000000000</HighValue>
-    <LowValue>4696.815429688</LowValue>
+    <HighValue>2700.000000000</HighValue>
+    <LowValue>2700.000000000</LowValue>
 </Widget>
 <Widget>
     <Kind>4</Kind>
     <Name>tSpeed</Name>
-    <Value>0.500000000</Value>
+    <Value>0.000000000</Value>
 </Widget>
 <Widget>
     <Kind>4</Kind>
     <Name>tSpread</Name>
-    <Value>0.150000006</Value>
+    <Value>0.000000000</Value>
 </Widget>
 <Widget>
     <Kind>6</Kind>
     <Name>bRange</Name>
     <HighValue>1.000000000</HighValue>
-    <LowValue>0.523089170</LowValue>
+    <LowValue>0.957802594</LowValue>
 </Widget>
 <Widget>
     <Kind>4</Kind>
     <Name>bSpeed</Name>
-    <Value>0.400000006</Value>
+    <Value>0.000000000</Value>
 </Widget>
 <Widget>
     <Kind>4</Kind>
     <Name>bSpread</Name>
-    <Value>0.250000000</Value>
+    <Value>0.000000000</Value>
 </Widget>
 <Widget>
     <Kind>4</Kind>
@@ -45,29 +45,34 @@
 <Widget>
     <Kind>6</Kind>
     <Name>tRangePos</Name>
-    <HighValue>3090.286621094</HighValue>
+    <HighValue>6500.000000000</HighValue>
     <LowValue>2700.000000000</LowValue>
 </Widget>
 <Widget>
     <Kind>6</Kind>
     <Name>bRangePos</Name>
-    <HighValue>0.106687844</HighValue>
+    <HighValue>1.000000000</HighValue>
     <LowValue>0.000000000</LowValue>
 </Widget>
 <Widget>
     <Kind>4</Kind>
     <Name>pSize</Name>
-    <Value>0.501592398</Value>
+    <Value>0.000000000</Value>
 </Widget>
 <Widget>
     <Kind>6</Kind>
     <Name>tRangeDir</Name>
-    <HighValue>6500.000000000</HighValue>
-    <LowValue>5994.745605469</LowValue>
+    <HighValue>2700.000000000</HighValue>
+    <LowValue>2700.000000000</LowValue>
 </Widget>
 <Widget>
     <Kind>6</Kind>
     <Name>bRangeDir</Name>
-    <HighValue>0.097929940</HighValue>
+    <HighValue>0.000000000</HighValue>
     <LowValue>0.000000000</LowValue>
+</Widget>
+<Widget>
+    <Kind>17</Kind>
+    <Name>Show Walls Instead of Corners</Name>
+    <Value>1</Value>
 </Widget>
