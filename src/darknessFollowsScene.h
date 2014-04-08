@@ -79,6 +79,7 @@ public:
     bool lerpFloorPosToDest;
 
     bool bWallsInsteadOfCorners;
+    bool bWasWallsInsteadOfCorners;
 
 protected:
 private:

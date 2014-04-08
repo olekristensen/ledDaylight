@@ -243,7 +243,7 @@ void darknessFollowsScene::update()
         floorPos.setOrientation(q);
     }
 
-    if(bWallsInsteadOfCorners)
+    if(bWallsInsteadOfCorners && !bWasWallsInsteadOfCorners)
     {
         wallAndCornerLights[0]->setPosition(-floor.getWidth()/1.8, 0, 100/lightZposCheat);
         wallAndCornerLights[0]->setOrientation(ofQuaternion(270,ofVec3f(0,0,1)));
@@ -253,8 +253,8 @@ void darknessFollowsScene::update()
         wallAndCornerLights[2]->setOrientation(ofQuaternion(90,ofVec3f(0,0,1)));
         wallAndCornerLights[3]->setPosition(0,floor.getHeight()/1.8, 100/lightZposCheat);
         wallAndCornerLights[3]->setOrientation(ofQuaternion(180,ofVec3f(0,0,1)));
-    }
-    else
+        bWasWallsInsteadOfCorners = true;
+    } else if(!bWallsInsteadOfCorners && bWasWallsInsteadOfCorners)
     {
         wallAndCornerLights[0]->setPosition(-floor.getWidth()/2.0, -floor.getHeight()/2.0, 290/lightZposCheat);
         wallAndCornerLights[0]->setOrientation(ofQuaternion(-45,ofVec3f(0,0,1)));
@@ -264,6 +264,7 @@ void darknessFollowsScene::update()
         wallAndCornerLights[2]->setOrientation(ofQuaternion(135,ofVec3f(0,0,1)));
         wallAndCornerLights[3]->setPosition(-floor.getWidth()/2.0,floor.getHeight()/2.0, 290/lightZposCheat);
         wallAndCornerLights[3]->setOrientation(ofQuaternion(225,ofVec3f(0,0,1)));
+        bWasWallsInsteadOfCorners = false;
     }
 
 
@@ -361,8 +362,6 @@ void darknessFollowsScene::update()
             shd->setNormalisedBrightness(brightness);
         }
     }
-
-    cout << endl;
 
     ofxOlaShaderLight::update();
 
