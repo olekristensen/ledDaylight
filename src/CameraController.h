@@ -44,8 +44,6 @@ public:
     vector<ImageMetadata> imagesMetadata;
     vector<ofxCvColorImage*> images;
 
-
-
     float getAbsShutterValueFromRegister(unsigned int value)
     {
         typedef union _AbsValueConversion
@@ -520,7 +518,7 @@ public:
 
     void draw()
     {
-        glPushMatrix();
+        ofPushMatrix();
         float scaleFactor = ofGetWidth()/(camWidth*2.0);
         float scaleFactorY = ofGetHeight()/(camHeight*1.0);
 
@@ -548,7 +546,7 @@ public:
 
             ofTranslate(camWidth, 0);
         }
-        glPopMatrix();
+        ofPopMatrix();
     }
 };
 
