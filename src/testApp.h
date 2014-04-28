@@ -5,7 +5,7 @@
 #include "CameraController.h"
 #include "fullScreenDialogs.h"
 #include "ofxUI.h"
-#include "darknessFollowsScene.h"
+#include "daylightScene.h"
 
 class testApp : public ofBaseApp
 {
@@ -29,13 +29,6 @@ public:
     void setGUI();
 
 protected:
-    //pgCamera sourceCamera;
-    //pgCamera destinationCamera;
-
-    CameraController cameraController;
-
-    //ola::DmxBuffer buffer;
-    //ola::StreamingClient ola_client;
 
     vector<ledScene*> scenes;
     ledScene * activeScene;

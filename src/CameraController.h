@@ -44,41 +44,6 @@ public:
     vector<ImageMetadata> imagesMetadata;
     vector<ofxCvColorImage*> images;
 
-    float getAbsShutterValueFromRegister(unsigned int value)
-    {
-        typedef union _AbsValueConversion
-        {
-            unsigned int ulValue;
-            float fValue;
-        } AbsValueConversion;
-
-        AbsValueConversion converted;
-        converted.ulValue = (value & 0xFFFFu);
-
-        std::cout << converted.fValue << std::endl;
-
-        return converted.fValue;
-
-        value = (value & 0xFFFFu);
-        float absValue = 0.0;
-        std::cout << value << std::endl;
-        float unitMillis = 0.01;
-        if(value < 1025) {
-            absValue = unitMillis * value;
-            std::cout << absValue << std::endl;
-            return absValue;
-        }
-        unsigned int exponent = (((value - 1024)/512)+1);
-        absValue = 10.24;
-        for(int i = 1; i < exponent; i++)
-        {
-            unitMillis = 0.01*pow(2,i);
-            absValue += unitMillis * 512;
-        }
-        unitMillis = 0.01*pow(2,exponent);
-        absValue += (value - (1024+((exponent-1)*512)))*unitMillis;
-        return absValue;
-    }
 
     CameraController()
     {
@@ -295,7 +260,7 @@ public:
         cameraSettings.loadFile(filename);
 
         BusManager busMgr;
-        catchError(busMgr.ForceAllIPAddressesAutomatically());
+        //catchError(busMgr.ForceAllIPAddressesAutomatically());
         unsigned int numCameras;
         catchError(busMgr.GetNumOfCameras(&numCameras));
         printf("found %u cameras", numCameras);
@@ -443,6 +408,8 @@ public:
                         image->allocate(camWidth, camHeight);
                         images.push_back(image);
 
+                        AllShutterValues(camera);
+
 
                     }
                     else
@@ -473,13 +440,13 @@ public:
 
             shutterWasSetToAbs = pow(1000./(fmodf(ofGetElapsedTimef()*20, 2000.0)+5),2);
             Image tempImage;
-            Property shutter(SHUTTER);
-            shutter.absValue = shutterWasSetToAbs;
-            shutter.autoManualMode = false;
-            shutter.absControl = true;
-            shutter.onOff = true;
-            catchError(camera.SetProperty(&shutter));
-
+            /*            Property shutter(SHUTTER);
+                        shutter.absValue = shutterWasSetToAbs;
+                        shutter.autoManualMode = false;
+                        shutter.absControl = true;
+                        shutter.onOff = true;
+                        catchError(camera.SetProperty(&shutter));
+            */
 //            PollForTriggerReady(&camera);
 
             // Fire software trigger
@@ -534,13 +501,13 @@ public:
 
             ofDrawBitmapString("Image Metadata", 10, camHeight+200);
             ofDrawBitmapString(ofToString(metadata.embeddedShutter), 10, camHeight +40);
-            ofDrawBitmapString(ofToString(getAbsShutterValueFromRegister(metadata.embeddedShutter)), 10, camHeight +80);
+            //ofDrawBitmapString(ofToString(getAbsShutterValueFromRegister(metadata.embeddedShutter)), 10, camHeight +80);
             ofDrawBitmapString(ofToString(shutterWasSetToAbs), 10, camHeight +120);
             ofDrawBitmapString(ofToString(metadata.embeddedShutter), 10, camHeight +160);
 
             ofDrawBitmapString("Camera Metadata", 300, camHeight+200);
             ofDrawBitmapString(ofToString(shutter.valueA), 300, camHeight +40);
-            ofDrawBitmapString(ofToString(getAbsShutterValueFromRegister(shutter.valueA)), 300, camHeight +80);
+            //ofDrawBitmapString(ofToString(getAbsShutterValueFromRegister(shutter.valueA)), 300, camHeight +80);
             ofDrawBitmapString(ofToString(shutter.absValue), 300, camHeight +120);
             ofDrawBitmapString(ofToString(shutter.valueA), 300, camHeight +160);
 
@@ -548,6 +515,58 @@ public:
         }
         ofPopMatrix();
     }
+
+    int AllShutterValues( GigECamera* cam )
+    {
+        Error error;
+
+        Property prop;
+        prop.type = SHUTTER;
+
+        prop.autoManualMode = false;
+        prop.absControl = true;
+
+        // Read register for relative shutter
+
+        const unsigned int shutter_rel = 0x81C;
+        unsigned int shutter_Rel = 0;
+
+        cam->ReadRegister(shutter_rel, &shutter_Rel);
+
+        // Create Excel file
+
+        FILE * fp = fopen("RelativeToAbsoluteShutterEx.csv", "w");
+        fprintf(fp, "RELATIVE SHUTTER, ABSOLUTE SHUTTER (ms) \n");
+
+        printf("Writing shutter values... ");
+
+        // Loop through all possible relative shutter values. Save relative and corresponding absolute shutter
+
+        for(unsigned int shutter_count = 1; shutter_count <= 4096; shutter_count ++)
+        {
+
+            cam->WriteRegister(shutter_rel,shutter_count);
+
+            error = cam->GetProperty( &prop );
+            if (error != PGRERROR_OK)
+            {
+                catchError( error );
+                return -1;
+            }
+
+            cam->ReadRegister( shutter_rel, &shutter_Rel );
+
+            // Print to Excel File
+            fprintf(fp, " %d, %.2f\n", (shutter_Rel & 0x0000FFFF), prop.absValue);
+
+        }
+
+        fclose(fp);
+
+        return 0;
+    }
 };
+
+
 
 #endif // CAMERACONTROLLER_H_INCLUDED

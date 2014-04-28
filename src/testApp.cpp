@@ -20,8 +20,8 @@ void testApp::setup()
 {
     hideGUI = false;
 
-    //scenes.push_back(new darknessFollowsScene());
-/*
+    scenes.push_back(new daylightScene());
+
     for(std::vector<ledScene*>::iterator it = scenes.begin(); it != scenes.end(); ++it)
     {
         ledScene* s = *(it);
@@ -29,11 +29,10 @@ void testApp::setup()
     }
 
     activeScene = scenes[0];
-*/
+
     setGUI();
 
 //    sourceCamera.connect();
-	  cameraController.load("cameraSettings.xml");
 
     ofSetFrameRate(30);
 
@@ -167,14 +166,13 @@ void testApp::update()
             }
         }
     */
-  //  activeScene->update();
+    activeScene->update();
 
     /*    if (!ola_client.SendDmx(0, buffer))
         {
             cout << "Send DMX failed" << endl;
         }
 
-          cameraController.update();
     */
 }
 
@@ -185,7 +183,7 @@ void testApp::draw()
     ofEnableDepthTest();
     ofEnableSmoothing();
     float viewportWidth = (ofGetWidth()-gui->getRect()->getWidth());
-    /*
+
     ofPushMatrix();
     {
         ofViewport(gui->getRect()->getWidth(),0,viewportWidth,ofGetHeight());
@@ -195,8 +193,6 @@ void testApp::draw()
         ofViewport();
     }
     ofPopMatrix();
-*/
-    cameraController.draw();
 }
 
 //--------------------------------------------------------------
