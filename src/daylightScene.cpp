@@ -15,7 +15,6 @@ daylightScene::~daylightScene()
         delete rawImages[i];
         delete images[i];
         delete cameras[i];
-
     }
 }
 
@@ -75,12 +74,17 @@ void daylightScene::setup()
         }
     }
 
+    setupCams();
+
+}
+
+int daylightScene::setupCams(){
     BusManager busMgr;
     //catchError(busMgr.ForceAllIPAddressesAutomatically());
     unsigned int numCameras;
     catchError(busMgr.GetNumOfCameras(&numCameras));
     printf("found %u cameras", numCameras);
-    if(numCameras < 1) exit(0);
+    if(numCameras < 1) return 0;
     for(unsigned int i = 0; i < numCameras; i++)
     {
         GigECamera* camera = new GigECamera();
@@ -295,9 +299,9 @@ void daylightScene::setup()
         {
             catchError(error);
         }
+        return numCameras;
     }
 }
-
 
 void daylightScene::setGUI(ofxUISuperCanvas* gui)
 {
@@ -375,6 +379,10 @@ void daylightScene::setGUI(ofxUISuperCanvas* gui)
 
 void daylightScene::update()
 {
+
+    if(cameras.size() < 2){
+        setupCams();
+    }
 
     imagesMetadata.clear();
 
@@ -566,7 +574,14 @@ void daylightScene::draw()
 
         ofTranslate(camWidth, 0);
     }
+
+    if(cameras.size() < 2){
+                ofSetColor(255,(255.0*sin(ofGetElapsedTimef()*0.5)+0.5));
+                ofDrawBitmapString("Looking for cameras", 100, 100);
+    }
+
     ofPopMatrix();
+
 
 
 

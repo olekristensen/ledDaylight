@@ -11,6 +11,7 @@ public:
     daylightScene();
     ~daylightScene();
     void setup();
+    int setupCams();
     void setGUI(ofxUISuperCanvas* gui);
     void update();
     void draw();

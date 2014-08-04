@@ -1153,10 +1153,10 @@
 		<Unit filename="src/LedFixture.h">
 			<Option virtualFolder="src/" />
 		</Unit>
-		<Unit filename="src/darknessFollowsScene.cpp">
+		<Unit filename="src/daylightScene.cpp">
 			<Option virtualFolder="src/" />
 		</Unit>
-		<Unit filename="src/darknessFollowsScene.h">
+		<Unit filename="src/daylightScene.h">
 			<Option virtualFolder="src/" />
 		</Unit>
 		<Unit filename="src/ledScene.cpp">
@@ -1166,12 +1166,6 @@
 			<Option virtualFolder="src/" />
 		</Unit>
 		<Unit filename="src/main.cpp">
-			<Option virtualFolder="src/" />
-		</Unit>
-		<Unit filename="src/pgCamera.cpp">
-			<Option virtualFolder="src/" />
-		</Unit>
-		<Unit filename="src/pgCamera.h">
 			<Option virtualFolder="src/" />
 		</Unit>
 		<Unit filename="src/testApp.cpp">
