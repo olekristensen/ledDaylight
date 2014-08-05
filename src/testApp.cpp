@@ -182,11 +182,16 @@ void testApp::draw()
     ofBackgroundGradient(ofColor(40), ofColor(10), OF_GRADIENT_CIRCULAR);
     ofEnableDepthTest();
     ofEnableSmoothing();
+    float originalWidth = ofGetWidth();
     float viewportWidth = (ofGetWidth()-gui->getRect()->getWidth());
 
     ofPushMatrix();
     {
+
+
         ofViewport(gui->getRect()->getWidth(),0,viewportWidth,ofGetHeight());
+        ofScale(1.0, viewportWidth/originalWidth);
+        ofDrawGrid(ofGetWidth());
 
         activeScene->draw();
 

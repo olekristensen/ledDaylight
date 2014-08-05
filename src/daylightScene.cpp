@@ -10,10 +10,6 @@ daylightScene::~daylightScene()
 {
     for(unsigned int i = 0; i < cameras.size(); i++)
     {
-        cameras[i]->StopCapture();
-        cameras[i]->Disconnect();
-        delete rawImages[i];
-        delete images[i];
         delete cameras[i];
     }
 }
@@ -66,241 +62,31 @@ void daylightScene::setup()
 
     white.diffuseColor = ofVec4f(255,255,255,255);
 
-    for(int i = 0; i < 2; i++)
-    {
-        for(int j = 0; j < 4096; j++)
-        {
-            absShutterVals[i][j] = 0.0;
-        }
-    }
-
-    setupCams();
-
-}
-
-int daylightScene::setupCams(){
     BusManager busMgr;
+    Error error;
     //catchError(busMgr.ForceAllIPAddressesAutomatically());
     unsigned int numCameras;
-    catchError(busMgr.GetNumOfCameras(&numCameras));
+
+    error = busMgr.GetNumOfCameras(&numCameras);
     printf("found %u cameras", numCameras);
-    if(numCameras < 1) return 0;
     for(unsigned int i = 0; i < numCameras; i++)
     {
-        GigECamera* camera = new GigECamera();
-        Image* rawImage = new Image();
 
-        PGRGuid guid;
+        unsigned int pSerialNumber;
         CameraInfo camInfo;
 
         Error error;
 
-        error = busMgr.GetCameraFromIndex(i, &guid);
-        if(error == PGRERROR_OK)
-        {
-            error = camera->Connect(&guid);
-            if(error == PGRERROR_OK)
-            {
-                error = camera->GetCameraInfo(&camInfo);
-                if(error == PGRERROR_OK)
-                {
-                    printInfo(camInfo);
+        error = busMgr.GetCameraSerialNumberFromIndex(i, &pSerialNumber);
 
-                    unsigned int numStreamChannels = 0;
-                    catchError(camera->GetNumStreamChannels( &numStreamChannels ));
-                    for (unsigned int j=0; j < numStreamChannels; j++)
-                    {
-                        GigEStreamChannel streamChannel;
-                        catchError(camera->GetGigEStreamChannelInfo( j, &streamChannel ));
-                        printf( "\nPrinting stream channel information for channel %u:\n", j );
-                        PrintStreamChannelInfo( &streamChannel );
-                    }
+        blackflyThreadedCamera* camera = new blackflyThreadedCamera();
 
-                    printf( "Querying GigE image setting information...\n" );
+        camera->setup(pSerialNumber);
 
-                    GigEImageSettingsInfo imageSettingsInfo;
-                    catchError(camera->GetGigEImageSettingsInfo( &imageSettingsInfo ));
+        cameras.push_back(camera);
 
-                    GigEImageSettings imageSettings;
-                    imageSettings.offsetX = (imageSettingsInfo.maxWidth-camWidth)/2;
-                    imageSettings.offsetY = (imageSettingsInfo.maxHeight-camHeight)/2;
-                    imageSettings.height = camHeight;
-                    imageSettings.width = camWidth;
-                    imageSettings.pixelFormat = k_PixFmt;
-
-                    printf( "Setting GigE image settings...\n" );
-
-                    catchError(camera->SetGigEImageSettings( &imageSettings ));
-
-                    GigEProperty packetSizeProp;
-                    packetSizeProp.propType = PACKET_SIZE;
-                    packetSizeProp.value = static_cast<unsigned int>(9000);
-                    catchError(camera->SetGigEProperty(&packetSizeProp));
-
-                    GigEProperty packetDelayProp;
-                    packetDelayProp.propType = PACKET_DELAY;
-                    packetDelayProp.value = static_cast<unsigned int>(1800);
-                    catchError(camera->SetGigEProperty(&packetDelayProp));
-
-                    printf( "Setting embeddedInfo...\n" );
-
-                    EmbeddedImageInfo embeddedInfo;
-                    catchError(camera->GetEmbeddedImageInfo( &embeddedInfo ));
-
-                    embeddedInfo.timestamp.onOff = true;
-                    embeddedInfo.gain.onOff = true;
-                    embeddedInfo.shutter.onOff = true;
-                    embeddedInfo.brightness.onOff = true;
-                    embeddedInfo.exposure.onOff = true;
-                    embeddedInfo.whiteBalance.onOff = true;
-                    embeddedInfo.frameCounter.onOff = true;
-                    embeddedInfo.strobePattern.onOff = true;
-                    embeddedInfo.GPIOPinState.onOff = true;
-                    embeddedInfo.ROIPosition.onOff = true;
-                    catchError(camera->SetEmbeddedImageInfo( &embeddedInfo ));
-
-                    printf( "Setting framerate...\n" );
-
-                    Property framerate(FRAME_RATE);
-                    framerate.onOff = true;
-                    framerate.absControl = true;
-                    framerate.absValue = 12.0; // 2076 is 12 fps
-                    framerate.autoManualMode = false;
-                    catchError(camera->SetProperty(&framerate));
-
-                    /** STARTING HERE **/
-
-                    // Get current trigger settings
-
-                    printf( "Setting trigger...\n" );
-
-                    TriggerMode triggerMode;
-                    catchError(camera->GetTriggerMode( &triggerMode ));
-                    // Set camera to trigger mode 0
-                    triggerMode.onOff = false;
-                    triggerMode.mode = 0;
-                    triggerMode.parameter = 0;
-                    triggerMode.source = 7;
-
-                    catchError(camera->SetTriggerMode( &triggerMode ));
-
-                    catchError(camera->StartCapture());
-
-                    printf( "Setting brightness...\n" );
-
-                    Property brightness(BRIGHTNESS);
-                    brightness.autoManualMode = false;
-                    brightness.absControl = true;
-                    brightness.absValue = 0.0;
-                    catchError(camera->SetProperty(&brightness));
-
-                    printf( "Setting exposure...\n" );
-
-                    Property autoExposure(AUTO_EXPOSURE);
-                    autoExposure.onOff = true;
-                    autoExposure.autoManualMode = false;
-                    autoExposure.absControl = true;
-                    autoExposure.absValue = 1.0;
-                    catchError(camera->SetProperty(&autoExposure));
-
-                    printf( "Setting gamma...\n" );
-
-                    Property gamma(GAMMA);
-                    gamma.onOff = true;
-                    gamma.autoManualMode = false;
-                    gamma.absControl = true;
-                    gamma.absValue = 1.0;
-                    catchError(camera->SetProperty(&gamma));
-
-                    printf( "Setting shutter...\n" );
-
-                    Property shutter(SHUTTER);
-                    shutter.absControl = false;
-//                    shutter.absValue = cameraSettings.getValue("shutter", 1.0); // ms
-                    shutter.autoManualMode = true;
-                    shutter.onOff = true;
-                    catchError(camera->SetProperty(&shutter));
-
-                    printf( "Setting gain...\n" );
-
-                    Property gain(GAIN);
-                    gain.absValue = 3.0;
-                    gain.autoManualMode = false;
-                    gain.absControl = true;
-                    gain.onOff = true;
-                    catchError(camera->SetProperty(&gain));
-
-                    printf( "Setting whitebalance...\n" );
-
-                    Property whitebalance(WHITE_BALANCE);
-                    whitebalance.valueA = 512;
-                    whitebalance.valueB = 512;
-                    whitebalance.autoManualMode = true;
-                    whitebalance.onOff = true;
-                    catchError(camera->SetProperty(&whitebalance));
-
-                    cameras.push_back(camera);
-                    rawImages.push_back(rawImage);
-
-                    ofxCvColorImage* image = new ofxCvColorImage();
-                    image->allocate(camWidth, camHeight);
-                    images.push_back(image);
-
-
-                    printf( "Building absolute exposure table ...\n" );
-
-                    Property prop;
-                    prop.type = SHUTTER;
-
-                    prop.autoManualMode = false;
-                    prop.absControl = true;
-
-                    // Read register for relative shutter
-
-                    const unsigned int shutter_rel = 0x81C;
-                    unsigned int shutter_Rel = 0;
-
-                    camera->ReadRegister(shutter_rel, &shutter_Rel);
-
-                    // Loop through all possible relative shutter values. Save relative and corresponding absolute shutter
-
-                    for(unsigned int shutter_count = 1; shutter_count <= 4096; shutter_count ++)
-                    {
-
-                        camera->WriteRegister(shutter_rel,shutter_count);
-
-                        error = camera->GetProperty( &prop );
-                        if (error != PGRERROR_OK)
-                        {
-                            catchError( error );
-                        }
-
-                        camera->ReadRegister( shutter_rel, &shutter_Rel );
-
-                        // Print to Excel File
-                        absShutterVals[i][(shutter_Rel & 0x0000FFFF)-1] = prop.absValue;
-                        printf(" %d, %.2f\n", (shutter_Rel & 0x0000FFFF), prop.absValue);
-
-                    }
-
-                }
-                else
-                {
-                    catchError(error);
-                }
-            }
-            else
-            {
-                catchError(error);
-            }
-
-        }
-        else
-        {
-            catchError(error);
-        }
-        return numCameras;
     }
+
 }
 
 void daylightScene::setGUI(ofxUISuperCanvas* gui)
@@ -380,12 +166,7 @@ void daylightScene::setGUI(ofxUISuperCanvas* gui)
 void daylightScene::update()
 {
 
-    if(cameras.size() < 2){
-        setupCams();
-    }
-
-    imagesMetadata.clear();
-
+/**
     for(unsigned int i = 0; i < cameras.size(); i++)
     {
         GigECamera& camera = *(cameras[i]);
@@ -408,7 +189,8 @@ void daylightScene::update()
                         printf("\nError firing software trigger!\n");
                     }
         */
-        Error error = camera.RetrieveBuffer(&tempImage);
+
+/**        Error error = camera.RetrieveBuffer(&tempImage);
         if(error == PGRERROR_OK)
         {
             imagesMetadata.push_back(tempImage.GetMetadata());
@@ -433,7 +215,7 @@ void daylightScene::update()
             catchError(error);
         }
     }
-
+**/
 
     double temperatureSpreadCubic = powf(temperatureSpread, 3);
     double brightnessSpreadCubic = powf(brightnessSpread, 3);
@@ -540,22 +322,32 @@ void daylightScene::update()
 
 void daylightScene::draw()
 {
-//    ofPushMatrix();
-//    ofTranslate(ofGetWidth()/2, ofGetHeight()/2);
-
-
     ofPushMatrix();
-    float scaleFactor = ofGetWidth()/(camWidth*2.0);
-    float scaleFactorY = ofGetHeight()/(camHeight*1.0);
+    //ofTranslate(ofGetWidth()/2, ofGetHeight()/2);
 
-    ofScale(scaleFactor, scaleFactor, scaleFactor);
+    float xOffset = 0;
 
-    ofSetColor(255,255);
     for(unsigned int i = 0; i < cameras.size(); i++)
     {
-        images[i]->draw(0, 0);
 
-        ImageMetadata metadata = imagesMetadata[i];
+        blackflyThreadedCamera * camera = cameras[i];
+
+        ofPushMatrix();
+
+        float scaleFactor = ofGetWidth()/(camera->width*2.0);
+        float scaleFactorY = ofGetHeight()/(camera->height*1.0);
+
+        ofScale(scaleFactor, scaleFactor);
+
+        ofTranslate(xOffset,0);
+
+        ofSetColor(255,255);
+
+        camera->draw();
+
+        xOffset += camera->width;
+
+/*        ImageMetadata metadata = imagesMetadata[i];
 
         Property shutter(SHUTTER);
         catchError(cameras[i]->GetProperty(&shutter));
@@ -571,19 +363,10 @@ void daylightScene::draw()
         ofDrawBitmapString(ofToString(absShutterVals[i][(shutter.valueA & 0x0000FFFF)-1]), 300, camHeight +80);
         ofDrawBitmapString(ofToString(shutter.absValue), 300, camHeight +120);
         ofDrawBitmapString(ofToString(shutter.valueA), 300, camHeight +160);
-
-        ofTranslate(camWidth, 0);
+*/
+        ofPopMatrix();
     }
-
-    if(cameras.size() < 2){
-                ofSetColor(255,(255.0*sin(ofGetElapsedTimef()*0.5)+0.5));
-                ofDrawBitmapString("Looking for cameras", 100, 100);
-    }
-
     ofPopMatrix();
-
-
-
 
     ofPushStyle();
     ofxOlaShaderLight::begin();
