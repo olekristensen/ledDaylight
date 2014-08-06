@@ -1,7 +1,6 @@
 #pragma once
 #include "ledScene.h"
 #include "LedFixture.h"
-#include "ofxOpenCv.h"
 #include "FlyCapture2.h"
 #include "CameraController.h"
 

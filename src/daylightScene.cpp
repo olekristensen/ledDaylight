@@ -63,11 +63,11 @@ void daylightScene::setup()
     white.diffuseColor = ofVec4f(255,255,255,255);
 
     BusManager busMgr;
-    Error error;
-    //catchError(busMgr.ForceAllIPAddressesAutomatically());
+    FlyCapture2::Error error;
     unsigned int numCameras;
 
     error = busMgr.GetNumOfCameras(&numCameras);
+    //error = busMgr.ForceAllIPAddressesAutomatically();
     printf("found %u cameras", numCameras);
     for(unsigned int i = 0; i < numCameras; i++)
     {
@@ -75,7 +75,7 @@ void daylightScene::setup()
         unsigned int pSerialNumber;
         CameraInfo camInfo;
 
-        Error error;
+        FlyCapture2::Error error;
 
         error = busMgr.GetCameraSerialNumberFromIndex(i, &pSerialNumber);
 

@@ -6,8 +6,8 @@
 ################################################################################
 # FLYCAPTURE headers and libs
 ################################################################################
-USER_CFLAGS = -I/usr/include/flycapture -fopenmp 
-USER_LDFLAGS = -lflycapture -lola -lolacommon -lprotobuf -fopenmp
+USER_CFLAGS = -I/usr/include/flycapture -I/usr/local/include/opencv -I/usr/local/include -fopenmp
+USER_LDFLAGS = -lflycapture -lola -lolacommon -lprotobuf /usr/local/lib/libopencv_calib3d.so /usr/local/lib/libopencv_core.so /usr/local/lib/libopencv_features2d.so /usr/local/lib/libopencv_flann.so /usr/local/lib/libopencv_highgui.so /usr/local/lib/libopencv_imgcodecs.so /usr/local/lib/libopencv_imgproc.so /usr/local/lib/libopencv_ml.so /usr/local/lib/libopencv_nonfree.so /usr/local/lib/libopencv_objdetect.so /usr/local/lib/libopencv_optim.so /usr/local/lib/libopencv_photo.so /usr/local/lib/libopencv_shape.so /usr/local/lib/libopencv_stitching.so /usr/local/lib/libopencv_superres.so /usr/local/lib/libopencv_ts.a /usr/local/share/OpenCV/3rdparty/lib/libippicv.a /usr/local/lib/libopencv_video.so /usr/local/lib/libopencv_videoio.so /usr/local/lib/libopencv_videostab.so -lrt -lpthread -lm -ldl -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_photo -lopencv_imgcodecs -fopenmp
 
 ################################################################################
 # OF ROOT

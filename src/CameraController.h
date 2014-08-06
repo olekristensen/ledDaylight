@@ -4,8 +4,19 @@
 #pragma once
 
 #include "FlyCapture2.h"
-#include "ofxOpenCv.h"
 #include "ofxXmlSettings.h"
+#include "CvUtilities.h"
+#include <opencv2/photo.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
+#include <vector>
+#include <iostream>
+#include <fstream>
+
+using namespace cv;
+using namespace ofxCv;
+using namespace std;
+
 #include "ofMain.h"
 
 using namespace FlyCapture2;
@@ -25,9 +36,20 @@ public:
     Image* rawImageCurrent;
     Image* rawImageNext;
     Image* rawImageBuffers[2];
+
     ofxXmlSettings settings;
-    ofxCvFloatImage planarFloatImages[3];
-    ofxCvColorImage colorImage;
+    ofImage colorImage;
+    ofImage fusionImage;
+    ofImage tonemappedImage;
+    ofImage colorImageTextured;
+    ofImage fusionImageTextured;
+    ofImage tonemappedImageTextured;
+    FlyCapture2::Image convertedImage;
+
+    Mat hdrImage;
+
+    vector<Mat> ldrImages;
+    vector<float> times;
 
     float absShutterVals[4096];
     unsigned int absShutterValsRead;
@@ -47,7 +69,7 @@ public:
         absShutterValsRead = 0;
     }
 
-    void catchError(Error error)
+    void catchError(FlyCapture2::Error error)
     {
         if(error != PGRERROR_OK)
             error.PrintErrorTrace();
@@ -165,7 +187,7 @@ public:
 
         BusManager busMgr;
         PGRGuid guid;
-        Error error;
+        FlyCapture2::Error error;
 
         error = busMgr.GetCameraFromSerialNumber ( serialNumber, &guid );
         if(error == PGRERROR_OK)
@@ -339,11 +361,12 @@ public:
         }
         **/
 
-        planarFloatImages[0].allocate(width,height);
-        planarFloatImages[1].allocate(width,height);
-        planarFloatImages[2].allocate(width,height);
-
-        colorImage.allocate(width, height);
+        colorImage.allocate(width, height, OF_IMAGE_COLOR);
+        colorImage.setUseTexture(false);
+        fusionImage.allocate(width, height, OF_IMAGE_COLOR);
+        fusionImage.setUseTexture(false);
+        tonemappedImage.allocate(width, height, OF_IMAGE_COLOR);
+        tonemappedImage.setUseTexture(false);
 
         startThread(true, false);
 
@@ -379,14 +402,23 @@ public:
             font.drawString("Calibrating Camera ... ",40,80);
             break;
         case RUNNING:
+
+            //TODO: Why are the images not drawn?
+
             ofSetColor(255.0, 255.0);
-            colorImage.draw(0,0);
+            colorImageTextured = colorImage;
+            colorImageTextured.update();
+            colorImageTextured.draw(0,0);
             str = "s/n: " + ofToString(cameraInfo.serialNumber);
-            if(rawImageCurrent){
+            if(rawImageCurrent)
+            {
                 ImageMetadata metaData = rawImageCurrent->GetMetadata();
                 str += "\nshutter: " + ofToString(absShutterVals[(metaData.embeddedShutter & 0x0000FFFF)-1]);
             }
+            fusionImageTextured = fusionImage;
+            fusionImageTextured.draw(0, colorImage.getHeight());
             font.drawString(str,40,80);
+
             break;
         case CLOSING:
             ofSetColor(255,0,0,(.5+(sinf(ofGetElapsedTimef()*2.0)*.5))*255.0);
@@ -443,7 +475,7 @@ public:
             ofFile file;
             file.open(fileName, ofFile::WriteOnly, true);
 
-            Error error;
+            FlyCapture2::Error error;
 
             // Loop through all possible relative shutter values. Save relative and corresponding absolute shutter
 
@@ -469,8 +501,11 @@ public:
             file.close();
         }
 
+        float lastEmbeddedAbsShutter = 0.0;
+
         while (isThreadRunning())
         {
+
             state = RUNNING;
 
             // SHUTTER MODULATION
@@ -480,10 +515,9 @@ public:
             float quadPosition = pow(normalisedPosition, 4);
             float minShutterDenominator = 2000;
             float maxShutterDenominator = 12;
-            float shutterWasSetToAbs = ofMap(quadPosition, 0.0, 1.0, 1000./minShutterDenominator, 1000./maxShutterDenominator);
-            cout << shutterWasSetToAbs << endl;
+            float shutterAbs = ofMap(quadPosition, 0.0, 1.0, 1000./minShutterDenominator, 1000./maxShutterDenominator);
             Property shutter(SHUTTER);
-            shutter.absValue = shutterWasSetToAbs;
+            shutter.absValue = shutterAbs;
             shutter.autoManualMode = false;
             shutter.absControl = true;
             shutter.onOff = true;
@@ -502,7 +536,7 @@ public:
 
             **/
 
-            Error error = camera->RetrieveBuffer(rawImageNext);
+            FlyCapture2::Error error = camera->RetrieveBuffer(rawImageNext);
             if(error == PGRERROR_OK)
             {
 
@@ -510,17 +544,66 @@ public:
                 unsigned int rows, cols, stride;
                 rawImageNext->GetDimensions( &rows, &cols, &stride, &pixFormat );
                 rawImageNext->SetColorProcessing(NEAREST_NEIGHBOR);
-                // Create a converted image
-                Image convertedImage;
 
                 // Convert the raw image
-                catchError(rawImageNext->Convert( PIXEL_FORMAT_RGB8, &convertedImage ));
+                error = rawImageNext->Convert( PIXEL_FORMAT_RGB8, &convertedImage );
+
+                unsigned int pRows;
+                unsigned int pCols;
+                unsigned int pStride;
+
+                convertedImage.GetDimensions ( &pRows, &pCols, &pStride );
+
+                ofPixels pix;
+                pix.setFromAlignedPixels(convertedImage.GetData(), width, height, 3, pStride);
+                pix.setImageType(OF_IMAGE_COLOR);
 
                 lock();
-                colorImage.setFromPixels(convertedImage.GetData(), width, height);
-                colorImage.flagImageChanged();
+                colorImage.setFromPixels(pix);
                 std::swap(rawImageCurrent, rawImageNext);
                 unlock();
+
+                Mat newImage(toCv(colorImage));
+                ImageMetadata metaData = rawImageCurrent->GetMetadata();
+                float embeddedAbsShutter = absShutterVals[(metaData.embeddedShutter & 0x0000FFFF)-1];
+                ldrImages.push_back(newImage);
+                times.push_back(1.0/embeddedAbsShutter);
+                if(fabs(lastEmbeddedAbsShutter-embeddedAbsShutter) > 200)
+                {
+
+                    Mat response;
+                    Ptr<CalibrateDebevec> calibrate = createCalibrateDebevec();
+                    calibrate->process(ldrImages, response, times);
+
+                    Mat hdr;
+                    Ptr<MergeDebevec> merge_debevec = createMergeDebevec();
+                    merge_debevec->process(ldrImages, hdr, times, response);
+                    lock();
+                    hdrImage = hdr;
+                    unlock();
+
+                    Mat tonemapped;
+                    Ptr<TonemapDurand> tonemap = createTonemapDurand(2.2f);
+                    tonemap->process(hdr, tonemapped);
+                    lock();
+                    toOf(tonemapped, tonemappedImage);
+                    unlock();
+
+                    Mat fusion;
+                    Ptr<MergeMertens> merge_mertens = createMergeMertens();
+                    merge_mertens->process(ldrImages, fusion);
+                    lock();
+                    toOf(fusion, fusionImage);
+                    unlock();
+
+                    //imwrite("fusion.png", fusion * 255);
+                    //imwrite("ldr.png", ldr * 255);
+                    //imwrite("hdr.hdr", hdr);
+
+                    ldrImages.clear();
+                    times.clear();
+                }
+                lastEmbeddedAbsShutter = embeddedAbsShutter;
             }
             else
             {
@@ -548,6 +631,7 @@ public:
             delete rawImageBuffers[1];
         }
     }
+
 };
 
 #endif // CAMERACONTROLLER_H_INCLUDED
