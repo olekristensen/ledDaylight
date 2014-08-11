@@ -64,26 +64,52 @@ void daylightScene::setup()
 
     BusManager busMgr;
     FlyCapture2::Error error;
-    unsigned int numCameras;
 
-    error = busMgr.GetNumOfCameras(&numCameras);
-    //error = busMgr.ForceAllIPAddressesAutomatically();
-    printf("found %u cameras", numCameras);
+    unsigned int numCameras(8);
+    CameraInfo gigECameras[numCameras];
+    ofLogNotice() << "Forcing IP Addresses of all cameras on network";
+    error = busMgr.ForceAllIPAddressesAutomatically();
+
+    usleep(5000 * 1000);
+
+    ofLogNotice() << "Discovering cameras" << endl;
+    error = busMgr.RescanBus();
+    usleep(500 * 1000);
+
+    error = busMgr.DiscoverGigECameras( gigECameras, &numCameras );
+
+    ofLogNotice() << "Found " << numCameras << " GigE cameras" << endl;
+
     for(unsigned int i = 0; i < numCameras; i++)
     {
 
         unsigned int pSerialNumber;
-        CameraInfo camInfo;
-
         FlyCapture2::Error error;
 
-        error = busMgr.GetCameraSerialNumberFromIndex(i, &pSerialNumber);
+        unsigned int tries(0);
+        unsigned int maxTries(10);
+
+        ofLogNotice() << endl << "Trying to get serial number for camera " << i ;
+        while(error != PGRERROR_OK && tries < maxTries){
+            ofLogNotice() << maxTries - tries;
+            error = busMgr.GetCameraSerialNumberFromIndex(i, &pSerialNumber);
+            usleep(1000 * 10);
+            tries++;
+        }
 
         blackflyThreadedCamera* camera = new blackflyThreadedCamera();
 
-        camera->setup(pSerialNumber);
-
-        cameras.push_back(camera);
+        int setupError = -1;
+        tries = 0;
+        while ( setupError < 0 && tries < maxTries){
+            ofLogNotice() << maxTries - tries;
+            setupError = camera->setup(pSerialNumber);
+            usleep(1000 * 10);
+            tries++;
+        }
+        if(setupError > -1){
+            cameras.push_back(camera);
+        }
 
     }
 

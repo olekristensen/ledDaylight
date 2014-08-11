@@ -766,8 +766,12 @@
 		<Unit filename="src/CameraController.h">
 			<Option virtualFolder="src/" />
 		</Unit>
-		<Unit filename="src/CvUtilities.cpp" />
-		<Unit filename="src/CvUtilities.h" />
+		<Unit filename="src/CvUtilities.cpp">
+			<Option virtualFolder="src/" />
+		</Unit>
+		<Unit filename="src/CvUtilities.h">
+			<Option virtualFolder="src/" />
+		</Unit>
 		<Unit filename="src/LedFixture.cpp">
 			<Option virtualFolder="src/" />
 		</Unit>

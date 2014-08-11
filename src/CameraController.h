@@ -41,10 +41,9 @@ public:
     ofImage colorImage;
     ofImage fusionImage;
     ofImage tonemappedImage;
-    ofImage colorImageTextured;
-    ofImage fusionImageTextured;
-    ofImage tonemappedImageTextured;
     FlyCapture2::Image convertedImage;
+
+    bool updateHdrOnMainThread;
 
     Mat hdrImage;
 
@@ -61,6 +60,7 @@ public:
     blackflyThreadedCamera()
     {
         state = NEW;
+        updateHdrOnMainThread = false;
         font.loadFont("GUI/DroidSans.ttf", 42, true, true, true);
         rawImageBuffers[0] = new Image();
         rawImageBuffers[1] = new Image();
@@ -69,10 +69,25 @@ public:
         absShutterValsRead = 0;
     }
 
-    void catchError(FlyCapture2::Error error)
+    int catchError(FlyCapture2::Error error)
     {
-        if(error != PGRERROR_OK)
+        if(error == PGRERROR_OK)
+        {
+            return 0;
+        }
+        else
+        {
             error.PrintErrorTrace();
+            return -1;
+        }
+    }
+
+    float getAbsShutterFromEmbeddedShutter(unsigned int embeddedShutter)
+    {
+        if(embeddedShutter > 0)
+            return absShutterVals[(embeddedShutter & 0x0000FFFF)-1];
+        else
+            return 0;
     }
 
     void printInfo(const CameraInfo& cameraInfo)
@@ -352,21 +367,9 @@ public:
             return -1;
         }
 
-        catchError(camera->GetCameraInfo(&cameraInfo));
-
-        /** DEBUG
-        for(unsigned int shutter_count = 1; shutter_count <= 4096; shutter_count ++)
-        {
-            cout << shutter_count << ": " << ofToString(absShutterVals[shutter_count-1],16) << endl;
-        }
-        **/
-
         colorImage.allocate(width, height, OF_IMAGE_COLOR);
-        colorImage.setUseTexture(false);
         fusionImage.allocate(width, height, OF_IMAGE_COLOR);
-        fusionImage.setUseTexture(false);
         tonemappedImage.allocate(width, height, OF_IMAGE_COLOR);
-        tonemappedImage.setUseTexture(false);
 
         startThread(true, false);
 
@@ -376,7 +379,11 @@ public:
 
     void draw()
     {
-        lock();
+        this->lock();
+        if(updateHdrOnMainThread){
+                fusionImage.update();
+                updateHdrOnMainThread = false;
+        }
         ofPushStyle();
         ofDisableDepthTest();
         ofSetColor(127,255);
@@ -405,18 +412,16 @@ public:
 
             //TODO: Why are the images not drawn?
 
-            ofSetColor(255.0, 255.0);
-            colorImageTextured = colorImage;
-            colorImageTextured.update();
-            colorImageTextured.draw(0,0);
+            ofSetColor(255, 255);
+            colorImage.update();
+            colorImage.draw(0,0);
             str = "s/n: " + ofToString(cameraInfo.serialNumber);
             if(rawImageCurrent)
             {
                 ImageMetadata metaData = rawImageCurrent->GetMetadata();
-                str += "\nshutter: " + ofToString(absShutterVals[(metaData.embeddedShutter & 0x0000FFFF)-1]);
+                str += "\nshutter: " + ofToString(getAbsShutterFromEmbeddedShutter(metaData.embeddedShutter));
             }
-            fusionImageTextured = fusionImage;
-            fusionImageTextured.draw(0, colorImage.getHeight());
+            fusionImage.draw(0, colorImage.getHeight());
             font.drawString(str,40,80);
 
             break;
@@ -428,7 +433,7 @@ public:
             break;
         }
         ofPopStyle();
-        unlock();
+        this->unlock();
     }
 
     void threadedFunction()
@@ -510,7 +515,7 @@ public:
 
             // SHUTTER MODULATION
 
-            float duration = .5;
+            float duration = 1.5;
             float normalisedPosition = fmodf(ofGetElapsedTimef()/duration, 1.0);
             float quadPosition = pow(normalisedPosition, 4);
             float minShutterDenominator = 2000;
@@ -539,7 +544,7 @@ public:
             FlyCapture2::Error error = camera->RetrieveBuffer(rawImageNext);
             if(error == PGRERROR_OK)
             {
-
+                //ofLogNotice() << "Frame received";
                 PixelFormat pixFormat;
                 unsigned int rows, cols, stride;
                 rawImageNext->GetDimensions( &rows, &cols, &stride, &pixFormat );
@@ -555,54 +560,68 @@ public:
                 convertedImage.GetDimensions ( &pRows, &pCols, &pStride );
 
                 ofPixels pix;
-                pix.setFromAlignedPixels(convertedImage.GetData(), width, height, 3, pStride);
+                pix.setFromPixels(convertedImage.GetData(), width, height, OF_IMAGE_COLOR);
                 pix.setImageType(OF_IMAGE_COLOR);
 
+                ofImage newColorImage;
+                newColorImage.setUseTexture(false);
+                newColorImage.setFromPixels(pix);
+
                 lock();
-                colorImage.setFromPixels(pix);
+                copy(newColorImage, colorImage);
                 std::swap(rawImageCurrent, rawImageNext);
                 unlock();
 
-                Mat newImage(toCv(colorImage));
+                Mat newImage;
+                copy(colorImage, newImage);
                 ImageMetadata metaData = rawImageCurrent->GetMetadata();
-                float embeddedAbsShutter = absShutterVals[(metaData.embeddedShutter & 0x0000FFFF)-1];
-                ldrImages.push_back(newImage);
-                times.push_back(1.0/embeddedAbsShutter);
-                if(fabs(lastEmbeddedAbsShutter-embeddedAbsShutter) > 200)
-                {
+                float embeddedAbsShutter = getAbsShutterFromEmbeddedShutter(metaData.embeddedShutter);
 
-                    Mat response;
-                    Ptr<CalibrateDebevec> calibrate = createCalibrateDebevec();
-                    calibrate->process(ldrImages, response, times);
+                if((lastEmbeddedAbsShutter-embeddedAbsShutter) > 40 && ldrImages.size() > 5) {
 
-                    Mat hdr;
-                    Ptr<MergeDebevec> merge_debevec = createMergeDebevec();
-                    merge_debevec->process(ldrImages, hdr, times, response);
-                    lock();
-                    hdrImage = hdr;
-                    unlock();
+                ofLogNotice() << "Making HDR images" << endl;
 
-                    Mat tonemapped;
-                    Ptr<TonemapDurand> tonemap = createTonemapDurand(2.2f);
-                    tonemap->process(hdr, tonemapped);
-                    lock();
-                    toOf(tonemapped, tonemappedImage);
-                    unlock();
+/*
+                Mat response;
+                Ptr<CalibrateDebevec> calibrate = createCalibrateDebevec();
+                calibrate->process(ldrImages, response, times);
+                ofLogNotice() << "Calculated Response Curve" << endl;
 
-                    Mat fusion;
-                    Ptr<MergeMertens> merge_mertens = createMergeMertens();
-                    merge_mertens->process(ldrImages, fusion);
-                    lock();
-                    toOf(fusion, fusionImage);
-                    unlock();
+                Mat hdr;
+                Ptr<MergeDebevec> merge_debevec = createMergeDebevec();
+                merge_debevec->process(ldrImages, hdr, times, response);
+                hdrImage = hdr;
+                ofLogNotice() << "Made HDR image" << endl;
 
-                    //imwrite("fusion.png", fusion * 255);
-                    //imwrite("ldr.png", ldr * 255);
-                    //imwrite("hdr.hdr", hdr);
+                Mat tonemapped;
+                Ptr<TonemapDurand> tonemap = createTonemapDurand(2.2f);
+                tonemap->process(hdr, tonemapped);
+                toOf(tonemapped, tonemappedImage);
+                ofLogNotice() << "Made Tonemapped image" << endl;
+*/
+                Mat fusion;
+                Ptr<MergeMertens> merge_mertens = createMergeMertens();
+                merge_mertens->process(ldrImages, fusion);
+                lock();
+                copy(fusion, fusionImage);
+                unlock();
+                ofLogNotice() << "Made Fusion image with " << ldrImages.size() << " LDR images" << endl;
+
+                //imwrite("fusion.png", fusion * 255);
+                //imwrite("ldr.png", ldr * 255);
+                //imwrite("hdr.hdr", hdr);
+
 
                     ldrImages.clear();
                     times.clear();
+                    lock();
+                    updateHdrOnMainThread = true;
+                    unlock();
                 }
+                lock();
+                ldrImages.push_back(newImage);
+                times.push_back(embeddedAbsShutter);
+                unlock();
                 lastEmbeddedAbsShutter = embeddedAbsShutter;
             }
             else
