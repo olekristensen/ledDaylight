@@ -21,47 +21,161 @@ using namespace std;
 
 using namespace FlyCapture2;
 
+class HdrImageThread : public ofThread {
+
+    public:
+
+    int width;
+    int height;
+
+    vector<FlyCapture2::Image> pImageQueue;
+    vector<float> pImageQueueExposureTimes;
+
+    FlyCapture2::Image convertedImage;
+
+    vector<Mat> ldrImages;
+    vector<float> ldrExposureTimes;
+
+    ofImage colorImage;
+    ofImage fusionImage;
+    ofImage tonemappedImage;
+
+    bool newHdrImage;
+
+    int numberExposures;
+
+    void setup(int width, int height, int numberExposures){
+        this->width = width;
+        this->height = height;
+        this->numberExposures = numberExposures;
+
+        colorImage.allocate(width, height, OF_IMAGE_COLOR);
+        fusionImage.allocate(width, height, OF_IMAGE_COLOR);
+        tonemappedImage.allocate(width, height, OF_IMAGE_COLOR);
+    }
+
+    void addImage(FlyCapture2::Image pImage, float exposureTime){
+
+        pImageQueue.push_back(pImage);
+        pImageQueueExposureTimes.push_back(exposureTime);
+
+        if(!isThreadRunning()){
+            startThread(true,false);
+        }
+    }
+
+    void draw(){
+        if(newHdrImage){
+            lock();
+            fusionImage.update();
+            newHdrImage = false;
+            unlock();
+        }
+        colorImage.draw(0,0);
+        fusionImage.draw(0,height);
+    }
+
+    void threadedFunction(){
+        while(isThreadRunning()){
+            while(pImageQueue.size() > 0){
+                FlyCapture2::Image pImage = pImageQueue.back();
+                float pImageExposureTime = pImageQueueExposureTimes.back();
+                float ldrImageExposureTime = ldrExposureTimes.back();
+                if(pImageExposureTime != ldrImageExposureTime){
+
+                    pImage.SetColorProcessing(NEAREST_NEIGHBOR);
+
+                    // Convert the raw image
+                    FlyCapture2::Error error = pImage.Convert( PIXEL_FORMAT_RGB8, &convertedImage );
+                    if(error == PGRERROR_OK)
+                    {
+                        unsigned int rows, cols, stride;
+                        convertedImage.GetDimensions ( &rows, &cols, &stride );
+
+                        ofPixels pix;
+                        pix.setFromPixels(convertedImage.GetData(), cols, rows, OF_IMAGE_COLOR);
+                        pix.setImageType(OF_IMAGE_COLOR);
+
+                        ofImage newColorImage;
+                        newColorImage.setUseTexture(false);
+                        newColorImage.setFromPixels(pix);
+
+                        lock();
+                        copy(newColorImage, colorImage);
+                        unlock();
+
+                        Mat newImage;
+                        copy(newColorImage, newImage);
+
+                        ldrImages.push_back(newImage);
+                        ldrExposureTimes.push_back(ldrImageExposureTime);
+                    }
+                }
+                pImageQueue.pop_back();
+                pImageQueueExposureTimes.pop_back();
+
+                if(ldrImages.size() >= numberExposures){
+
+                    Mat fusion;
+                    Ptr<MergeMertens> merge_mertens = createMergeMertens();
+                    merge_mertens->process(ldrImages, fusion);
+
+                    ldrImages.clear();
+                    ldrExposureTimes.clear();
+                    lock();
+                    copy(fusion, fusionImage);
+                    //copy(tonemapped, tonemappedImage);
+                    newHdrImage = true;
+                    unlock();
+
+                }
+
+            }
+
+            }
+
+        }
+
+
+};
+
+
 class blackflyThreadedCamera : public ofThread
 {
 public:
+    ofTrueTypeFont font;
+
     static const int width = 1280;
     static const int height = 720;
 
-    ofTrueTypeFont font;
+    int numberExposures = 4;
 
     const PixelFormat k_PixFmt = PIXEL_FORMAT_RAW12;
 
     GigECamera* camera;
     CameraInfo cameraInfo;
-    Image* rawImageCurrent;
-    Image* rawImageNext;
-    Image* rawImageBuffers[2];
 
     ofxXmlSettings settings;
-    ofImage colorImage;
-    ofImage fusionImage;
-    ofImage tonemappedImage;
-    FlyCapture2::Image convertedImage;
 
-    bool updateHdrOnMainThread;
+    FlyCapture2::Image * rawImageBuffers[2];
+    FlyCapture2::Image * rawImageCurrent;
+    FlyCapture2::Image * rawImageNext;
 
-    Mat hdrImage;
+    HdrImageThread hdrImageThread;
 
-    vector<Mat> ldrImages;
-    vector<float> times;
+    bool drawWasCalled;
+    bool errorRetrieve;
 
     float absShutterVals[4096];
     unsigned int absShutterValsRead;
 
-    enum CameraState { NEW, SETUP, CALIBRATING, RUNNING, CLOSING };
+    enum CameraState { NEW, SETUP, READING_EXP, RUNNING, CLOSING };
 
     CameraState state = NEW;
 
     blackflyThreadedCamera()
     {
         state = NEW;
-        updateHdrOnMainThread = false;
-        font.loadFont("GUI/DroidSans.ttf", 42, true, true, true);
         rawImageBuffers[0] = new Image();
         rawImageBuffers[1] = new Image();
         rawImageCurrent = rawImageBuffers[0];
@@ -193,8 +307,47 @@ public:
             pStreamChannel->sourcePort );
     }
 
+    bool PollForTriggerReady()
+    {
+        const unsigned int k_softwareTrigger = 0x62C;
+        FlyCapture2::Error error;
+        unsigned int regVal = 0;
+
+        do
+        {
+            error = camera->ReadRegister( k_softwareTrigger, &regVal );
+            if (error != PGRERROR_OK)
+            {
+                error.PrintErrorTrace();
+                return false;
+            }
+        }
+        while ( (regVal >> 31) != 0 );
+
+        return true;
+    }
+
+    bool FireSoftwareTrigger()
+    {
+        const unsigned int k_softwareTrigger = 0x62C;
+        const unsigned int k_fireVal = 0x80000000;
+        FlyCapture2::Error error;
+
+        error = camera->WriteRegister( k_softwareTrigger, k_fireVal );
+        if (error != PGRERROR_OK)
+        {
+            error.PrintErrorTrace();
+            return false;
+        }
+
+        return true;
+    }
+
+
     int setup(unsigned int serialNumber)
     {
+
+        font.loadFont("GUI/DroidSans.ttf", 42, true, true, true);
 
         state = SETUP;
 
@@ -248,7 +401,7 @@ public:
 
                     GigEProperty packetDelayProp;
                     packetDelayProp.propType = PACKET_DELAY;
-                    packetDelayProp.value = static_cast<unsigned int>(1800);
+                    packetDelayProp.value = static_cast<unsigned int>(1200);
                     catchError(camera->SetGigEProperty(&packetDelayProp));
 
                     printf( "Setting embeddedInfo...\n" );
@@ -279,19 +432,14 @@ public:
 
                     /** STARTING CAPTURE HERE **/
 
-                    // Get current trigger settings
+                    // Get the camera configuration
+                    FC2Config config;
+                    catchError(camera->GetConfiguration( &config ));
+                    // Set the grab timeout to 1.5 seconds
+                    config.grabTimeout = 1500;
 
-                    printf( "Setting trigger...\n" );
-
-                    TriggerMode triggerMode;
-                    catchError(camera->GetTriggerMode( &triggerMode ));
-                    // Set camera to trigger mode 0
-                    triggerMode.onOff = false;
-                    triggerMode.mode = 0;
-                    triggerMode.parameter = 0;
-                    triggerMode.source = 7;
-
-                    catchError(camera->SetTriggerMode( &triggerMode ));
+                    // Set the camera configuration
+                    catchError(camera->SetConfiguration( &config ));
 
                     catchError(camera->StartCapture());
 
@@ -306,7 +454,7 @@ public:
                     printf( "Setting exposure...\n" );
 
                     Property autoExposure(AUTO_EXPOSURE);
-                    autoExposure.onOff = true;
+                    autoExposure.onOff = false;
                     autoExposure.autoManualMode = false;
                     autoExposure.absControl = true;
                     autoExposure.absValue = 1.0;
@@ -333,7 +481,7 @@ public:
                     printf( "Setting gain...\n" );
 
                     Property gain(GAIN);
-                    gain.absValue = 3.0;
+                    gain.absValue = 1.0;
                     gain.autoManualMode = false;
                     gain.absControl = true;
                     gain.onOff = true;
@@ -367,9 +515,7 @@ public:
             return -1;
         }
 
-        colorImage.allocate(width, height, OF_IMAGE_COLOR);
-        fusionImage.allocate(width, height, OF_IMAGE_COLOR);
-        tonemappedImage.allocate(width, height, OF_IMAGE_COLOR);
+        hdrImageThread.setup(width, height, numberExposures);
 
         startThread(true, false);
 
@@ -379,11 +525,6 @@ public:
 
     void draw()
     {
-        this->lock();
-        if(updateHdrOnMainThread){
-                fusionImage.update();
-                updateHdrOnMainThread = false;
-        }
         ofPushStyle();
         ofDisableDepthTest();
         ofSetColor(127,255);
@@ -392,38 +533,42 @@ public:
         string str;
         float alpha = (.5+(sinf(ofGetElapsedTimef()*2.0)*.5));
 
+        str = "s/n: " + ofToString(cameraInfo.serialNumber) + "\n";
+
         switch (state)
         {
         case NEW:
             break;
         case SETUP:
             ofSetColor(255.0, 255.0);
-            font.drawString("Setting Up Camera...",40,80);
+            str += "Setting Up Camera...";
+            font.drawString(str,40,80);
             break;
-        case CALIBRATING:
-            ofSetColor(255,255,0,255.0);
+        case READING_EXP:
+/*            ofSetColor(255, 255);
+            hdrImageThread.colorImage.update();
+            hdrImageThread.draw();
+*/          ofSetColor(255,255,255,63.0);
             ofRect(0,0,width*(absShutterValsRead/4096.0), height);
-            ofSetColor(255,255,0,127.0);
-            //ofRect(width*(absShutterValsRead/4096.0),0,width-(width*(absShutterValsRead/4096.0)), height);
-            ofSetColor(0.0, 255.0);
-            font.drawString("Calibrating Camera ... ",40,80);
+            ofSetColor(0,0,0,63.0);
+            ofRect(width*(absShutterValsRead/4096.0),0,width-(width*(absShutterValsRead/4096.0)), height);
+            ofSetColor(255.0, 255.0);
+            str += "Building Exposure Table ...";
+            if(absShutterValsRead > 0)
+                str += "\n" +  ofToString(absShutterValsRead) + ": " + ofToString(absShutterVals[absShutterValsRead-1]);
+            font.drawString(str,40,80);
             break;
         case RUNNING:
-
-            //TODO: Why are the images not drawn?
-
             ofSetColor(255, 255);
-            colorImage.update();
-            colorImage.draw(0,0);
-            str = "s/n: " + ofToString(cameraInfo.serialNumber);
+            hdrImageThread.draw();
             if(rawImageCurrent)
             {
                 ImageMetadata metaData = rawImageCurrent->GetMetadata();
-                str += "\nshutter: " + ofToString(getAbsShutterFromEmbeddedShutter(metaData.embeddedShutter));
+                str += "shutter: " + ofToString(getAbsShutterFromEmbeddedShutter(metaData.embeddedShutter));
             }
-            fusionImage.draw(0, colorImage.getHeight());
             font.drawString(str,40,80);
-
+            ofSetColor(255,0,0);
+            if(errorRetrieve) ofRect(width-30,0, 30, 30);
             break;
         case CLOSING:
             ofSetColor(255,0,0,(.5+(sinf(ofGetElapsedTimef()*2.0)*.5))*255.0);
@@ -433,18 +578,19 @@ public:
             break;
         }
         ofPopStyle();
-        this->unlock();
+        drawWasCalled = true;
     }
 
     void threadedFunction()
     {
 
-        state = CALIBRATING;
-
         string fileName = ofToDataPath("Camera-" + ofToString(cameraInfo.serialNumber) + "-absShutterVals.csv");
+
+        state = READING_EXP;
 
         if(ofFile::doesFileExist(fileName))
         {
+
             ofLogNotice( "Reading absolute exposure table from " + fileName + " ...\n" );
             ofFile file;
             file.open(fileName, ofFile::ReadOnly, false);
@@ -456,13 +602,34 @@ public:
                 absShutterVals[lineNumber++] = ofToFloat(buff.getNextLine());
                 absShutterValsRead = lineNumber;
                 unlock();
-                yield();
             }
             file.close();
         }
-        else
+
+        if(absShutterValsRead < 4096)
         {
+            if(ofFile::doesFileExist(fileName))
+            {
+                ofFile::removeFile(fileName);
+            }
+            lock();
+            absShutterValsRead = 0;
+            unlock();
             printf( "Building absolute exposure table ...\n" );
+
+                    printf( "Setting trigger...\n" );
+
+                    TriggerMode triggerMode;
+                    catchError(camera->GetTriggerMode( &triggerMode ));
+                    triggerMode.onOff = true;
+                    // Set camera to trigger mode 0
+                    triggerMode.mode = 0;
+                    triggerMode.parameter = 0;
+                    // Trigger source 7 = software, 0 = external
+                    triggerMode.source = 7;
+
+                    catchError(camera->SetTriggerMode( &triggerMode ));
+
 
             Property prop;
             prop.type = SHUTTER;
@@ -472,10 +639,10 @@ public:
 
             // Read register for relative shutter
 
-            const unsigned int shutter_rel = 0x81C;
-            unsigned int shutter_Rel = 0;
+            const unsigned int shutter_register = 0x81C;
+            unsigned int shutterRelative = 0;
 
-            camera->ReadRegister(shutter_rel, &shutter_Rel);
+            camera->ReadRegister(shutter_register, &shutterRelative);
 
             ofFile file;
             file.open(fileName, ofFile::WriteOnly, true);
@@ -486,7 +653,16 @@ public:
 
             for(unsigned int shutter_count = 1; shutter_count <= 4096; shutter_count ++)
             {
-                camera->WriteRegister(shutter_rel,shutter_count);
+
+                camera->WriteRegister(shutter_register,shutter_count);
+
+                PollForTriggerReady();
+
+                bool retVal = FireSoftwareTrigger();
+                if ( !retVal )
+                {
+                    printf("\nError firing software trigger!\n");
+                }
 
                 error = camera->GetProperty( &prop );
                 if (error != PGRERROR_OK)
@@ -494,141 +670,120 @@ public:
                     catchError( error );
                 }
 
-                camera->ReadRegister( shutter_rel, &shutter_Rel );
+                camera->ReadRegister( shutter_register, &shutterRelative );
 
+                file << ofToString(prop.absValue, 16) << endl;
+/*
+                if(drawWasCalled){
+
+                    drawWasCalled = false;
+
+                    FlyCapture2::Error error = camera->RetrieveBuffer(rawImageNext);
+                    if(error == PGRERROR_OK)
+                    {
+                        PixelFormat pixFormat;
+                        unsigned int rows, cols, stride;
+                        rawImageNext->GetDimensions( &rows, &cols, &stride, &pixFormat );
+                        rawImageNext->SetColorProcessing(NEAREST_NEIGHBOR);
+
+                        // Convert the raw image
+                        error = rawImageNext->Convert( PIXEL_FORMAT_RGB8, &(hdrImageThread.convertedImage) );
+
+                        if(error == PGRERROR_OK)
+                        {
+                            unsigned int pRows;
+                            unsigned int pCols;
+                            unsigned int pStride;
+
+                            hdrImageThread.convertedImage.GetDimensions ( &pRows, &pCols, &pStride );
+
+                            ofPixels pix;
+                            // TODO: why crash here?
+
+                            pix.setFromPixels(hdrImageThread.convertedImage.GetData(), width, height, OF_IMAGE_COLOR);
+                            pix.setImageType(OF_IMAGE_COLOR);
+
+                            ofImage newColorImage;
+                            newColorImage.setUseTexture(false);
+                            newColorImage.setFromPixels(pix);
+
+                            lock();
+                            copy(newColorImage, hdrImageThread.colorImage);
+                            std::swap(rawImageCurrent, rawImageNext);
+                            unlock();
+
+                        }
+                        else
+                        {
+                            catchError(error);
+                        }
+
+                    }
+                    else
+                    {
+                        catchError(error);
+                    }
+                }
+*/
                 lock();
-                absShutterVals[(shutter_Rel & 0x0000FFFF)-1] = prop.absValue;
+                absShutterVals[(shutterRelative & 0x0000FFFF)-1] = prop.absValue;
                 absShutterValsRead = shutter_count;
                 unlock();
 
-                file << ofToString(prop.absValue, 16) << endl;
             }
             file.close();
         }
 
-        float lastEmbeddedAbsShutter = 0.0;
+                    printf( "Setting trigger...\n" );
+
+                    TriggerMode triggerMode;
+                    catchError(camera->GetTriggerMode( &triggerMode ));
+                    triggerMode.onOff = false;
+                    // Set camera to trigger mode 0
+                    triggerMode.mode = 0;
+                    triggerMode.parameter = 0;
+                    // Trigger source 7 = software, 0 = external
+                    triggerMode.source = 7;
+
+                    catchError(camera->SetTriggerMode( &triggerMode ));
+
+
 
         while (isThreadRunning())
         {
+            int divisor = 6;
+            float shutterDenominator = 3000.0;
+            float lastEmbeddedShutter = 0;
 
-            state = RUNNING;
-
-            // SHUTTER MODULATION
-
-            float duration = 1.5;
-            float normalisedPosition = fmodf(ofGetElapsedTimef()/duration, 1.0);
-            float quadPosition = pow(normalisedPosition, 4);
-            float minShutterDenominator = 2000;
-            float maxShutterDenominator = 12;
-            float shutterAbs = ofMap(quadPosition, 0.0, 1.0, 1000./minShutterDenominator, 1000./maxShutterDenominator);
-            Property shutter(SHUTTER);
-            shutter.absValue = shutterAbs;
-            shutter.autoManualMode = false;
-            shutter.absControl = true;
-            shutter.onOff = true;
-            catchError(camera->SetProperty(&shutter));
-
-            /** SOFTWARE TRIGGER
-
-            // PollForTriggerReady(&camera);
-
-            // Fire software trigger
-            bool retVal = FireSoftwareTrigger( &camera );
-            if ( !retVal )
+            for (int i = 0; i < numberExposures; )
             {
-                printf("\nError firing software trigger!\n");
-            }
 
-            **/
+                float shutterAbs = 1000.0/shutterDenominator;
+                Property shutter(SHUTTER);
+                shutter.absValue = shutterAbs;
+                shutter.autoManualMode = false;
+                shutter.absControl = true;
+                shutter.onOff = true;
+                catchError(camera->SetProperty(&shutter));
 
-            FlyCapture2::Error error = camera->RetrieveBuffer(rawImageNext);
-            if(error == PGRERROR_OK)
-            {
-                //ofLogNotice() << "Frame received";
-                PixelFormat pixFormat;
-                unsigned int rows, cols, stride;
-                rawImageNext->GetDimensions( &rows, &cols, &stride, &pixFormat );
-                rawImageNext->SetColorProcessing(NEAREST_NEIGHBOR);
-
-                // Convert the raw image
-                error = rawImageNext->Convert( PIXEL_FORMAT_RGB8, &convertedImage );
-
-                unsigned int pRows;
-                unsigned int pCols;
-                unsigned int pStride;
-
-                convertedImage.GetDimensions ( &pRows, &pCols, &pStride );
-
-                ofPixels pix;
-                pix.setFromPixels(convertedImage.GetData(), width, height, OF_IMAGE_COLOR);
-                pix.setImageType(OF_IMAGE_COLOR);
-
-                ofImage newColorImage;
-                newColorImage.setUseTexture(false);
-                newColorImage.setFromPixels(pix);
-
-                lock();
-                copy(newColorImage, colorImage);
-                std::swap(rawImageCurrent, rawImageNext);
-                unlock();
-
-                Mat newImage;
-                copy(colorImage, newImage);
-                ImageMetadata metaData = rawImageCurrent->GetMetadata();
-                float embeddedAbsShutter = getAbsShutterFromEmbeddedShutter(metaData.embeddedShutter);
-
-                if((lastEmbeddedAbsShutter-embeddedAbsShutter) > 40 && ldrImages.size() > 5) {
-
-                ofLogNotice() << "Making HDR images" << endl;
-
-/*
-                Mat response;
-                Ptr<CalibrateDebevec> calibrate = createCalibrateDebevec();
-                calibrate->process(ldrImages, response, times);
-                ofLogNotice() << "Calculated Response Curve" << endl;
-
-                Mat hdr;
-                Ptr<MergeDebevec> merge_debevec = createMergeDebevec();
-                merge_debevec->process(ldrImages, hdr, times, response);
-                hdrImage = hdr;
-                ofLogNotice() << "Made HDR image" << endl;
-
-                Mat tonemapped;
-                Ptr<TonemapDurand> tonemap = createTonemapDurand(2.2f);
-                tonemap->process(hdr, tonemapped);
-                toOf(tonemapped, tonemappedImage);
-                ofLogNotice() << "Made Tonemapped image" << endl;
-*/
-                Mat fusion;
-                Ptr<MergeMertens> merge_mertens = createMergeMertens();
-                merge_mertens->process(ldrImages, fusion);
-                lock();
-                copy(fusion, fusionImage);
-                unlock();
-                ofLogNotice() << "Made Fusion image with " << ldrImages.size() << " LDR images" << endl;
-
-                //imwrite("fusion.png", fusion * 255);
-                //imwrite("ldr.png", ldr * 255);
-                //imwrite("hdr.hdr", hdr);
-
-
-                    ldrImages.clear();
-                    times.clear();
-                    lock();
-                    updateHdrOnMainThread = true;
-                    unlock();
+                FlyCapture2::Error error = camera->RetrieveBuffer(rawImageNext);
+                if(error == PGRERROR_OK)
+                {
+                    ImageMetadata metaData = rawImageNext->GetMetadata();
+                    float embeddedAbsShutter = getAbsShutterFromEmbeddedShutter(metaData.embeddedShutter);
+                    if(lastEmbeddedShutter !=embeddedAbsShutter){
+                        hdrImageThread.addImage(*(rawImageNext), embeddedAbsShutter);
+                        shutterDenominator /= divisor;
+                        i++;
+                    }
+                    lastEmbeddedShutter = embeddedAbsShutter;
                 }
-                lock();
-                ldrImages.push_back(newImage);
-                times.push_back(embeddedAbsShutter);
-                unlock();
-                lastEmbeddedAbsShutter = embeddedAbsShutter;
+                else
+                {
+                    catchError(error);
+                    errorRetrieve = true;
+                }
             }
-            else
-            {
-                catchError(error);
-            }
-
         }
 
         state = CLOSING;

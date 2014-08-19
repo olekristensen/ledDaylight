@@ -191,7 +191,7 @@ void testApp::draw()
 
         ofViewport(gui->getRect()->getWidth(),0,viewportWidth,ofGetHeight());
         ofScale(1.0, viewportWidth/originalWidth);
-        ofDrawGrid(ofGetWidth());
+        //ofDrawGrid(ofGetWidth());
 
         activeScene->draw();
 
