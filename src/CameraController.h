@@ -28,8 +28,8 @@ class HdrImageThread : public ofThread {
     int width;
     int height;
 
-    vector<FlyCapture2::Image> pImageQueue;
-    vector<float> pImageQueueExposureTimes;
+    queue<FlyCapture2::Image> pImageQueue;
+    queue<float> pImageQueueExposureTimes;
 
     FlyCapture2::Image convertedImage;
 
@@ -40,7 +40,8 @@ class HdrImageThread : public ofThread {
     ofImage fusionImage;
     ofImage tonemappedImage;
 
-    bool newHdrImage;
+    bool updateHdrImage;
+    bool updateColorImage;
 
     int numberExposures;
 
@@ -48,6 +49,8 @@ class HdrImageThread : public ofThread {
         this->width = width;
         this->height = height;
         this->numberExposures = numberExposures;
+        updateHdrImage = false;
+        updateColorImage = false;
 
         colorImage.allocate(width, height, OF_IMAGE_COLOR);
         fusionImage.allocate(width, height, OF_IMAGE_COLOR);
@@ -56,31 +59,56 @@ class HdrImageThread : public ofThread {
 
     void addImage(FlyCapture2::Image pImage, float exposureTime){
 
-        pImageQueue.push_back(pImage);
-        pImageQueueExposureTimes.push_back(exposureTime);
+        pImageQueue.push(pImage);
+        pImageQueueExposureTimes.push(exposureTime);
 
         if(!isThreadRunning()){
             startThread(true,false);
         }
     }
 
+    void clearQueues(){
+        lock();
+            ldrImages.clear();
+            ldrExposureTimes.clear();
+        unlock();
+    }
+
     void draw(){
-        if(newHdrImage){
+        ofSetColor(255,255,255,255);
+        if(updateHdrImage){
             lock();
             fusionImage.update();
-            newHdrImage = false;
+            tonemappedImage.update();
+            updateHdrImage = false;
+            unlock();
+        }
+        if(updateColorImage){
+            lock();
+            colorImage.update();
+            updateColorImage = false;
             unlock();
         }
         colorImage.draw(0,0);
         fusionImage.draw(0,height);
+        tonemappedImage.draw(0,height*2);
+        lock();
+        for(int i = 0; i < ldrExposureTimes.size(); i++){
+            float columnWidth = width*1.0/numberExposures;
+            ofRect(i*columnWidth, height, columnWidth, -ldrExposureTimes[i]*6.0);
+        }
+        unlock();
     }
 
     void threadedFunction(){
         while(isThreadRunning()){
             while(pImageQueue.size() > 0){
-                FlyCapture2::Image pImage = pImageQueue.back();
-                float pImageExposureTime = pImageQueueExposureTimes.back();
-                float ldrImageExposureTime = ldrExposureTimes.back();
+                FlyCapture2::Image pImage = pImageQueue.front();
+                float pImageExposureTime = pImageQueueExposureTimes.front();
+                float ldrImageExposureTime = 0;
+                if(ldrExposureTimes.size() > 0) {
+                    ldrImageExposureTime = ldrExposureTimes.back();
+                }
                 if(pImageExposureTime != ldrImageExposureTime){
 
                     pImage.SetColorProcessing(NEAREST_NEIGHBOR);
@@ -103,16 +131,21 @@ class HdrImageThread : public ofThread {
                         lock();
                         copy(newColorImage, colorImage);
                         unlock();
+                        updateColorImage = true;
 
                         Mat newImage;
                         copy(newColorImage, newImage);
 
+                        lock();
                         ldrImages.push_back(newImage);
-                        ldrExposureTimes.push_back(ldrImageExposureTime);
+                        ldrExposureTimes.push_back(pImageExposureTime);
+                        unlock();
+                    } else {
+                        clearQueues();
                     }
                 }
-                pImageQueue.pop_back();
-                pImageQueueExposureTimes.pop_back();
+                pImageQueue.pop();
+                pImageQueueExposureTimes.pop();
 
                 if(ldrImages.size() >= numberExposures){
 
@@ -120,13 +153,29 @@ class HdrImageThread : public ofThread {
                     Ptr<MergeMertens> merge_mertens = createMergeMertens();
                     merge_mertens->process(ldrImages, fusion);
 
-                    ldrImages.clear();
-                    ldrExposureTimes.clear();
+                    //todo save response curve:
+
+                    Mat response;
+                    Ptr<CalibrateDebevec> calibrate = createCalibrateDebevec();
+                    calibrate->process(ldrImages, response, ldrExposureTimes);
+
+                    Mat hdr;
+                    Ptr<MergeDebevec> merge_debevec = createMergeDebevec();
+                    merge_debevec->process(ldrImages, hdr, ldrExposureTimes, response);
+
+                    //todo debug this:
+
+                    Mat tonemapped;
+                    Ptr<TonemapDurand> tonemap = createTonemapDurand(2.2f);
+                    tonemap->process(hdr, tonemapped);
+
                     lock();
                     copy(fusion, fusionImage);
-                    //copy(tonemapped, tonemappedImage);
-                    newHdrImage = true;
+                    copy(tonemapped, tonemappedImage);
+                    updateHdrImage = true;
                     unlock();
+
+                    clearQueues();
 
                 }
 
@@ -162,6 +211,8 @@ public:
     FlyCapture2::Image * rawImageNext;
 
     HdrImageThread hdrImageThread;
+
+    list<float> history;
 
     bool drawWasCalled;
     bool errorRetrieve;
@@ -569,6 +620,23 @@ public:
             font.drawString(str,40,80);
             ofSetColor(255,0,0);
             if(errorRetrieve) ofRect(width-30,0, 30, 30);
+            {
+            lock();
+            int historyWidth = 5;
+            int historyI = 0;
+            while(history.size()*historyWidth > width) history.pop_front();
+            for(std::list<float>::iterator it = history.begin(); it != history.end(); it++){
+                float historyItem = *(it);
+                if(historyItem < 0){
+                    ofSetColor(255,0,0,255);
+                } else {
+                    ofSetColor(0,255,historyItem*8);
+                }
+                ofRect(historyI*historyWidth, 0, historyWidth, historyWidth);
+                historyI++;
+            }
+            unlock();
+            }
             break;
         case CLOSING:
             ofSetColor(255,0,0,(.5+(sinf(ofGetElapsedTimef()*2.0)*.5))*255.0);
@@ -751,8 +819,9 @@ public:
 
         while (isThreadRunning())
         {
-            int divisor = 6;
-            float shutterDenominator = 3000.0;
+            state = RUNNING;
+            int divisor = 4;
+            float shutterDenominator = 1000.0;
             float lastEmbeddedShutter = 0;
 
             for (int i = 0; i < numberExposures; )
@@ -766,20 +835,30 @@ public:
                 shutter.onOff = true;
                 catchError(camera->SetProperty(&shutter));
 
+                sleep(floor(shutterDenominator/15.0));
+
                 FlyCapture2::Error error = camera->RetrieveBuffer(rawImageNext);
                 if(error == PGRERROR_OK)
                 {
                     ImageMetadata metaData = rawImageNext->GetMetadata();
                     float embeddedAbsShutter = getAbsShutterFromEmbeddedShutter(metaData.embeddedShutter);
-                    if(lastEmbeddedShutter !=embeddedAbsShutter){
-                        hdrImageThread.addImage(*(rawImageNext), embeddedAbsShutter);
-                        shutterDenominator /= divisor;
-                        i++;
+                    history.push_back(embeddedAbsShutter);
+                    if(embeddedAbsShutter != lastEmbeddedShutter){
+                            //FlyCapture2::Image * newImage;
+                            //rawImageNext->DeepCopy(newImage);
+                            hdrImageThread.addImage(*(rawImageNext), embeddedAbsShutter);
+                            shutterDenominator /= divisor;
+                            i++;
+                            lock();
+                            std::swap(rawImageCurrent, rawImageNext);
+                            unlock();
+                            errorRetrieve = false;
                     }
                     lastEmbeddedShutter = embeddedAbsShutter;
                 }
                 else
                 {
+                    history.push_back(-1.0);
                     catchError(error);
                     errorRetrieve = true;
                 }
