@@ -91,7 +91,6 @@ void daylightScene::setup()
 
         ofLogNotice() << endl << "Trying to get serial number for camera " << i ;
         while(error != PGRERROR_OK && tries < maxTries){
-            ofLogNotice() << maxTries - tries;
             error = busMgr.GetCameraSerialNumberFromIndex(i, &pSerialNumber);
             usleep(1000 * 10);
             tries++;
@@ -118,6 +117,10 @@ void daylightScene::setup()
 void daylightScene::setGUI(ofxUISuperCanvas* gui)
 {
     this->gui = gui;
+
+    for(int i = 0; i<cameras.size(); i++){
+    guiWidgets.push_back(gui->addSlider("Shutter Denominator "+ofToString(i), 3000, 250, &(cameras[i]->shutterDenominatorGUI)));
+    }
 
     /*    guiWidgets.push_back(gui->addLabel("Temperature", OFX_UI_FONT_LARGE));
         guiWidgets.push_back(gui->addSpacer());

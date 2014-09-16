@@ -7,9 +7,12 @@
 #include "ofxXmlSettings.h"
 #include "CvUtilities.h"
 #include <opencv2/photo.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
 #include <vector>
+#include <queue>
+#include <mutex>
 #include <iostream>
 #include <fstream>
 
@@ -21,15 +24,20 @@ using namespace std;
 
 using namespace FlyCapture2;
 
-class HdrImageThread : public ofThread {
+class HdrImageThread : public ofThread
+{
 
-    public:
+public:
 
     int width;
     int height;
 
-    queue<FlyCapture2::Image> pImageQueue;
-    queue<float> pImageQueueExposureTimes;
+    int reduction = 1;
+
+    std::queue<FlyCapture2::Image> pImageQueue;
+    std::queue<float> pImageQueueExposureTimes;
+
+    std::mutex queueMutex;
 
     FlyCapture2::Image convertedImage;
 
@@ -45,7 +53,8 @@ class HdrImageThread : public ofThread {
 
     int numberExposures;
 
-    void setup(int width, int height, int numberExposures){
+    void setup(int width, int height, int numberExposures)
+    {
         this->width = width;
         this->height = height;
         this->numberExposures = numberExposures;
@@ -53,139 +62,177 @@ class HdrImageThread : public ofThread {
         updateColorImage = false;
 
         colorImage.allocate(width, height, OF_IMAGE_COLOR);
-        fusionImage.allocate(width, height, OF_IMAGE_COLOR);
-        tonemappedImage.allocate(width, height, OF_IMAGE_COLOR);
+        fusionImage.allocate(width/reduction, height/reduction, OF_IMAGE_COLOR);
+        tonemappedImage.allocate(width/reduction, height/reduction, OF_IMAGE_COLOR);
     }
 
-    void addImage(FlyCapture2::Image pImage, float exposureTime){
+    void addImage(FlyCapture2::Image pImage, float exposureTime)
+    {
 
+        queueMutex.lock();
         pImageQueue.push(pImage);
         pImageQueueExposureTimes.push(exposureTime);
-
-        if(!isThreadRunning()){
-            startThread(true,false);
+        queueMutex.unlock();
+        if(!isThreadRunning())
+        {
+            startThread(true);
         }
     }
 
-    void clearQueues(){
+    void clearQueues()
+    {
         lock();
-            ldrImages.clear();
-            ldrExposureTimes.clear();
+        cout << "cleared ldr vectors" << endl;
+        ldrImages.clear();
+        ldrExposureTimes.clear();
         unlock();
     }
 
-    void draw(){
+    void draw()
+    {
         ofSetColor(255,255,255,255);
-        if(updateHdrImage){
+        if(updateHdrImage)
+        {
             lock();
-            fusionImage.update();
+            //fusionImage.update();
             tonemappedImage.update();
             updateHdrImage = false;
             unlock();
         }
-        if(updateColorImage){
+        if(updateColorImage)
+        {
             lock();
             colorImage.update();
             updateColorImage = false;
             unlock();
         }
         colorImage.draw(0,0);
-        fusionImage.draw(0,height);
-        tonemappedImage.draw(0,height*2);
+        //fusionImage.draw(0,height);
+        tonemappedImage.draw(0,height);
+        /*
         lock();
-        for(int i = 0; i < ldrExposureTimes.size(); i++){
+        for(int i = 0; i < ldrExposureTimes.size(); i++)
+        {
             float columnWidth = width*1.0/numberExposures;
-            ofRect(i*columnWidth, height, columnWidth, -ldrExposureTimes[i]*6.0);
+            ofRect(i*columnWidth, height*2.5, columnWidth, -ldrExposureTimes[i]*3.0);
         }
         unlock();
+        */
     }
 
-    void threadedFunction(){
-        while(isThreadRunning()){
-            while(pImageQueue.size() > 0){
-                FlyCapture2::Image pImage = pImageQueue.front();
-                float pImageExposureTime = pImageQueueExposureTimes.front();
-                float ldrImageExposureTime = 0;
-                if(ldrExposureTimes.size() > 0) {
-                    ldrImageExposureTime = ldrExposureTimes.back();
-                }
-                if(pImageExposureTime != ldrImageExposureTime){
+    void threadedFunction()
+    {
+        queueMutex.lock();
+        int queueSize = pImageQueue.size();
+        queueMutex.unlock();
+        while(queueSize > 0)
+        {
+            queueMutex.lock();
+            FlyCapture2::Image pImage = pImageQueue.front();
+            float pImageExposureTime = pImageQueueExposureTimes.front();
+            queueMutex.unlock();
 
-                    pImage.SetColorProcessing(NEAREST_NEIGHBOR);
+            float ldrImageExposureTime = 0;
+            lock();
+            if(ldrExposureTimes.size() > 0)
+            {
+                ldrImageExposureTime = ldrExposureTimes.back();
+            }
+            unlock();
 
-                    // Convert the raw image
-                    FlyCapture2::Error error = pImage.Convert( PIXEL_FORMAT_RGB8, &convertedImage );
-                    if(error == PGRERROR_OK)
-                    {
-                        unsigned int rows, cols, stride;
-                        convertedImage.GetDimensions ( &rows, &cols, &stride );
+            if(pImageExposureTime != ldrImageExposureTime)
+            {
 
-                        ofPixels pix;
-                        pix.setFromPixels(convertedImage.GetData(), cols, rows, OF_IMAGE_COLOR);
-                        pix.setImageType(OF_IMAGE_COLOR);
+                pImage.SetColorProcessing(IPP);
 
-                        ofImage newColorImage;
-                        newColorImage.setUseTexture(false);
-                        newColorImage.setFromPixels(pix);
+                // Convert the raw image
+                FlyCapture2::Error error = pImage.Convert( PIXEL_FORMAT_RGB8, &convertedImage );
+                if(error == PGRERROR_OK)
+                {
+                    unsigned int rows, cols, stride;
+                    convertedImage.GetDimensions ( &rows, &cols, &stride );
 
-                        lock();
-                        copy(newColorImage, colorImage);
-                        unlock();
-                        updateColorImage = true;
+                    ofPixels pix;
+                    pix.setFromPixels(convertedImage.GetData(), cols, rows, OF_IMAGE_COLOR);
+                    pix.setImageType(OF_IMAGE_COLOR);
 
-                        Mat newImage;
-                        copy(newColorImage, newImage);
+                    ofImage newColorImage;
+                    newColorImage.setUseTexture(false);
+                    newColorImage.setFromPixels(pix);
 
-                        lock();
-                        ldrImages.push_back(newImage);
-                        ldrExposureTimes.push_back(pImageExposureTime);
-                        unlock();
-                    } else {
-                        clearQueues();
-                    }
-                }
-                pImageQueue.pop();
-                pImageQueueExposureTimes.pop();
+                    Mat newImage;
+                    copy(newColorImage, newImage);
 
-                if(ldrImages.size() >= numberExposures){
-
-                    Mat fusion;
-                    Ptr<MergeMertens> merge_mertens = createMergeMertens();
-                    merge_mertens->process(ldrImages, fusion);
-
-                    //todo save response curve:
-
-                    Mat response;
-                    Ptr<CalibrateDebevec> calibrate = createCalibrateDebevec();
-                    calibrate->process(ldrImages, response, ldrExposureTimes);
-
-                    Mat hdr;
-                    Ptr<MergeDebevec> merge_debevec = createMergeDebevec();
-                    merge_debevec->process(ldrImages, hdr, ldrExposureTimes, response);
-
-                    //todo debug this:
-
-                    Mat tonemapped;
-                    Ptr<TonemapDurand> tonemap = createTonemapDurand(2.2f);
-                    tonemap->process(hdr, tonemapped);
-
+/*                    Mat smallNewImage;
+                    resize(newImage, smallNewImage, Size(width/reduction, height/reduction));
+*/
                     lock();
-                    copy(fusion, fusionImage);
-                    copy(tonemapped, tonemappedImage);
-                    updateHdrImage = true;
+                    ldrImages.push_back(newImage);
+                    ldrExposureTimes.push_back(pImageExposureTime);
                     unlock();
-
-                    clearQueues();
-
                 }
+                else
+                {
+                    //clearQueues();
+                }
+            }
+            queueMutex.lock();
+            pImageQueue.pop();
+            pImageQueueExposureTimes.pop();
+            queueSize = pImageQueue.size();
+            queueMutex.unlock();
+            if(ldrImages.size() >= numberExposures)
+            {
+                /*
+                cout << "making fusion" << endl;
+                Mat fusion;
+                Ptr<MergeMertens> merge_mertens = createMergeMertens();
+                merge_mertens->process(ldrImages, fusion);
+                */
+
+/*
+                cout << "making response" << endl;
+                Mat response;
+                Ptr<CalibrateDebevec> calibrate = createCalibrateDebevec();
+                calibrate->process(ldrImages, response, ldrExposureTimes);
+*/
+/*              DOES NOT WORK
+                cout << "making color image" << endl;
+                Mat combinedLdrs(width*(ldrImages.size()+1), height*(ldrImages.size()+1), CV_8UC3);
+                for(int i = 0; i < ldrImages.size(); i++){
+                    Mat roi(combinedLdrs, Rect(i*width, 0, width, height));
+                    ldrImages[i].copyTo(roi);
+                }
+                Mat newColorImage;
+                resize(combinedLdrs, newColorImage, Size(width, height));
+                */
+                Mat newColorImage(ldrImages.back());
+
+                cout << "making hdr" << endl;
+                Mat hdr;
+                Ptr<MergeDebevec> merge_debevec = createMergeDebevec();
+                merge_debevec->process(ldrImages, hdr, ldrExposureTimes);
+
+                cout << "making tonemapped" << endl;
+                Mat tonemapped;
+                Ptr<TonemapReinhard> tonemap = createTonemapReinhard(1.2);
+//                Ptr<TonemapMantiuk> tonemap = createTonemapMantiuk(1.2);
+                tonemap->process(hdr, tonemapped);
+
+                lock();
+                //copy(fusion, fusionImage);
+                copy(newColorImage, colorImage);
+                copy(tonemapped, tonemappedImage);
+                updateColorImage = true;
+                updateHdrImage = true;
+                unlock();
+
+                clearQueues();
 
             }
-
-            }
-
         }
-
-
+        cout << "stopping thread" << endl;
+    }
 };
 
 
@@ -197,9 +244,17 @@ public:
     static const int width = 1280;
     static const int height = 720;
 
-    int numberExposures = 4;
+    int numberExposures = 3;
+    int numberExposuresGUI = 3;
 
-    const PixelFormat k_PixFmt = PIXEL_FORMAT_RAW12;
+    int divisor = 8;
+    int divisorGUI = 8;
+
+    float shutterDenominator = 1500.0;
+    float shutterDenominatorGUI = 1500.0;
+
+    const PixelFormat k_PixFmt = PIXEL_FORMAT_RAW8;
+    const float k_frameRate = 10.0;
 
     GigECamera* camera;
     CameraInfo cameraInfo;
@@ -477,7 +532,7 @@ public:
                     Property framerate(FRAME_RATE);
                     framerate.onOff = true;
                     framerate.absControl = true;
-                    framerate.absValue = 12.0; // 2076 is 12 fps
+                    framerate.absValue = k_frameRate; // 2076 is 12 fps
                     framerate.autoManualMode = false;
                     catchError(camera->SetProperty(&framerate));
 
@@ -568,7 +623,7 @@ public:
 
         hdrImageThread.setup(width, height, numberExposures);
 
-        startThread(true, false);
+        startThread(true);
 
         return 0;
 
@@ -596,10 +651,11 @@ public:
             font.drawString(str,40,80);
             break;
         case READING_EXP:
-/*            ofSetColor(255, 255);
-            hdrImageThread.colorImage.update();
-            hdrImageThread.draw();
-*/          ofSetColor(255,255,255,63.0);
+            /*            ofSetColor(255, 255);
+                        hdrImageThread.colorImage.update();
+                        hdrImageThread.draw();
+            */
+            ofSetColor(255,255,255,63.0);
             ofRect(0,0,width*(absShutterValsRead/4096.0), height);
             ofSetColor(0,0,0,63.0);
             ofRect(width*(absShutterValsRead/4096.0),0,width-(width*(absShutterValsRead/4096.0)), height);
@@ -621,21 +677,25 @@ public:
             ofSetColor(255,0,0);
             if(errorRetrieve) ofRect(width-30,0, 30, 30);
             {
-            lock();
-            int historyWidth = 5;
-            int historyI = 0;
-            while(history.size()*historyWidth > width) history.pop_front();
-            for(std::list<float>::iterator it = history.begin(); it != history.end(); it++){
-                float historyItem = *(it);
-                if(historyItem < 0){
-                    ofSetColor(255,0,0,255);
-                } else {
-                    ofSetColor(0,255,historyItem*8);
+                lock();
+                int historyWidth = 5;
+                int historyI = 0;
+                while(history.size()*historyWidth > width) history.pop_front();
+                for(std::list<float>::iterator it = history.begin(); it != history.end(); it++)
+                {
+                    float historyItem = *(it);
+                    if(historyItem < 0)
+                    {
+                        ofSetColor(255,0,0,255);
+                    }
+                    else
+                    {
+                        ofSetColor(0,255,historyItem*8);
+                    }
+                    ofRect(historyI*historyWidth, 0, historyWidth, historyWidth);
+                    historyI++;
                 }
-                ofRect(historyI*historyWidth, 0, historyWidth, historyWidth);
-                historyI++;
-            }
-            unlock();
+                unlock();
             }
             break;
         case CLOSING:
@@ -685,18 +745,18 @@ public:
             unlock();
             printf( "Building absolute exposure table ...\n" );
 
-                    printf( "Setting trigger...\n" );
+            printf( "Setting trigger...\n" );
 
-                    TriggerMode triggerMode;
-                    catchError(camera->GetTriggerMode( &triggerMode ));
-                    triggerMode.onOff = true;
-                    // Set camera to trigger mode 0
-                    triggerMode.mode = 0;
-                    triggerMode.parameter = 0;
-                    // Trigger source 7 = software, 0 = external
-                    triggerMode.source = 7;
+            TriggerMode triggerMode;
+            catchError(camera->GetTriggerMode( &triggerMode ));
+            triggerMode.onOff = true;
+            // Set camera to trigger mode 0
+            triggerMode.mode = 0;
+            triggerMode.parameter = 0;
+            // Trigger source 7 = software, 0 = external
+            triggerMode.source = 7;
 
-                    catchError(camera->SetTriggerMode( &triggerMode ));
+            catchError(camera->SetTriggerMode( &triggerMode ));
 
 
             Property prop;
@@ -741,58 +801,7 @@ public:
                 camera->ReadRegister( shutter_register, &shutterRelative );
 
                 file << ofToString(prop.absValue, 16) << endl;
-/*
-                if(drawWasCalled){
 
-                    drawWasCalled = false;
-
-                    FlyCapture2::Error error = camera->RetrieveBuffer(rawImageNext);
-                    if(error == PGRERROR_OK)
-                    {
-                        PixelFormat pixFormat;
-                        unsigned int rows, cols, stride;
-                        rawImageNext->GetDimensions( &rows, &cols, &stride, &pixFormat );
-                        rawImageNext->SetColorProcessing(NEAREST_NEIGHBOR);
-
-                        // Convert the raw image
-                        error = rawImageNext->Convert( PIXEL_FORMAT_RGB8, &(hdrImageThread.convertedImage) );
-
-                        if(error == PGRERROR_OK)
-                        {
-                            unsigned int pRows;
-                            unsigned int pCols;
-                            unsigned int pStride;
-
-                            hdrImageThread.convertedImage.GetDimensions ( &pRows, &pCols, &pStride );
-
-                            ofPixels pix;
-                            // TODO: why crash here?
-
-                            pix.setFromPixels(hdrImageThread.convertedImage.GetData(), width, height, OF_IMAGE_COLOR);
-                            pix.setImageType(OF_IMAGE_COLOR);
-
-                            ofImage newColorImage;
-                            newColorImage.setUseTexture(false);
-                            newColorImage.setFromPixels(pix);
-
-                            lock();
-                            copy(newColorImage, hdrImageThread.colorImage);
-                            std::swap(rawImageCurrent, rawImageNext);
-                            unlock();
-
-                        }
-                        else
-                        {
-                            catchError(error);
-                        }
-
-                    }
-                    else
-                    {
-                        catchError(error);
-                    }
-                }
-*/
                 lock();
                 absShutterVals[(shutterRelative & 0x0000FFFF)-1] = prop.absValue;
                 absShutterValsRead = shutter_count;
@@ -802,26 +811,25 @@ public:
             file.close();
         }
 
-                    printf( "Setting trigger...\n" );
+        printf( "Setting trigger...\n" );
 
-                    TriggerMode triggerMode;
-                    catchError(camera->GetTriggerMode( &triggerMode ));
-                    triggerMode.onOff = false;
-                    // Set camera to trigger mode 0
-                    triggerMode.mode = 0;
-                    triggerMode.parameter = 0;
-                    // Trigger source 7 = software, 0 = external
-                    triggerMode.source = 7;
+        TriggerMode triggerMode;
+        catchError(camera->GetTriggerMode( &triggerMode ));
+        triggerMode.onOff = false;
+        // Set camera to trigger mode 0
+        triggerMode.mode = 0;
+        triggerMode.parameter = 0;
+        // Trigger source 7 = software, 0 = external
+        triggerMode.source = 7;
 
-                    catchError(camera->SetTriggerMode( &triggerMode ));
+        catchError(camera->SetTriggerMode( &triggerMode ));
 
 
 
         while (isThreadRunning())
         {
             state = RUNNING;
-            int divisor = 4;
-            float shutterDenominator = 1000.0;
+            shutterDenominator = shutterDenominatorGUI;
             float lastEmbeddedShutter = 0;
 
             for (int i = 0; i < numberExposures; )
@@ -835,7 +843,7 @@ public:
                 shutter.onOff = true;
                 catchError(camera->SetProperty(&shutter));
 
-                sleep(floor(shutterDenominator/15.0));
+                if(i == 0) sleep(floor(shutterDenominator/20.0));
 
                 FlyCapture2::Error error = camera->RetrieveBuffer(rawImageNext);
                 if(error == PGRERROR_OK)
@@ -843,16 +851,17 @@ public:
                     ImageMetadata metaData = rawImageNext->GetMetadata();
                     float embeddedAbsShutter = getAbsShutterFromEmbeddedShutter(metaData.embeddedShutter);
                     history.push_back(embeddedAbsShutter);
-                    if(embeddedAbsShutter != lastEmbeddedShutter){
-                            //FlyCapture2::Image * newImage;
-                            //rawImageNext->DeepCopy(newImage);
-                            hdrImageThread.addImage(*(rawImageNext), embeddedAbsShutter);
-                            shutterDenominator /= divisor;
-                            i++;
-                            lock();
-                            std::swap(rawImageCurrent, rawImageNext);
-                            unlock();
-                            errorRetrieve = false;
+                    if(embeddedAbsShutter != lastEmbeddedShutter)
+                    {
+                        //FlyCapture2::Image * newImage;
+                        //rawImageNext->DeepCopy(newImage);
+                        hdrImageThread.addImage(*(rawImageNext), embeddedAbsShutter);
+                        shutterDenominator /= divisor;
+                        i++;
+                        lock();
+                        std::swap(rawImageCurrent, rawImageNext);
+                        unlock();
+                        errorRetrieve = false;
                     }
                     lastEmbeddedShutter = embeddedAbsShutter;
                 }
